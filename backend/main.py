@@ -59,6 +59,7 @@ class TripRequest(BaseModel):
     budget: Optional[str] = None
     interests: Optional[str] = None
     travel_style: Optional[str] = None
+    num_people: Optional[int] = None
     # Optional fields for enhanced session tracking and observability
     user_input: Optional[str] = None
     session_id: Optional[str] = None
