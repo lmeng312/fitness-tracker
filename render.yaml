@@ -1,11 +1,4 @@
 services:
-  # PostgreSQL Database
-  - type: pserv
-    name: fitness-tracker-db
-    env: docker
-    plan: free
-    region: oregon
-  
   # FastAPI Backend
   - type: web
     name: fitness-tracker-backend
@@ -29,9 +22,7 @@ services:
       - key: PYTHON_VERSION
         value: 3.11.9
       - key: DATABASE_URL
-        fromDatabase:
-          name: fitness-tracker-db
-          property: connectionString
+        sync: false
       - key: BASE_URL
         sync: false
       - key: STRAVA_CLIENT_ID
