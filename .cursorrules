@@ -1,0 +1,333 @@
+# AI Health Tracker - Cursor Rules
+
+## Project Overview
+This is a production-ready multi-agent AI system built as a learning project for students. It demonstrates:
+- Multi-agent orchestration with LangGraph (parallel execution)
+- Real-time fitness data integration (Strava OAuth)
+- AI-powered health analysis and nutrition estimation
+- Graceful degradation and fallback patterns
+- Production observability with Arize/OpenInference
+
+## Architecture
+
+### Multi-Agent System
+- **Activity Agent**: Analyzes workouts and performance trends
+- **Recovery Agent**: Assesses sleep, HRV, and calculates readiness scores
+- **Nutrition Agent**: Evaluates diet patterns and energy balance
+- **Insights Agent**: Synthesizes all analyses and detects correlations
+
+### Execution Flow
+1. Activity, Recovery, and Nutrition agents run **in parallel**
+2. All three feed into the Insights agent sequentially
+3. Graph compiled WITHOUT checkpointer to avoid state persistence issues
+
+## Code Style & Conventions
+
+### General Python
+- Use type hints for all function parameters and returns
+- Prefer Optional[T] over Union[T, None]
+- Use TypedDict for structured state objects
+- Keep functions focused and single-purpose
+- Document complex logic with inline comments
+
+### FastAPI Endpoints
+- Use Pydantic models for request/response validation
+- Keep endpoint handlers thin - delegate to agent functions
+- Return structured responses with HealthResponse model
+- Handle errors gracefully with appropriate HTTP status codes
+
+### LangGraph Patterns
+
+#### State Management
+```python
+class HealthState(TypedDict):
+    messages: Annotated[List[BaseMessage], operator.add]
+    health_request: Dict[str, Any]
+    activity_analysis: Optional[str]
+    recovery_analysis: Optional[str]
+    nutrition_analysis: Optional[str]
+    final_insights: Optional[str]
+    readiness_score: Optional[int]
+    correlations: Optional[List[Dict[str, Any]]]
+    tool_calls: Annotated[List[Dict[str, Any]], operator.add]
+```
+- Use Annotated with operator.add for accumulating fields
+- Store agent outputs in dedicated state fields
+- Keep state flat and simple
+
+#### Graph Construction
+```python
+# Parallel execution pattern
+g.add_edge(START, "activity_node")
+g.add_edge(START, "recovery_node")
+g.add_edge(START, "nutrition_node")
+
+# Convergence to final agent
+g.add_edge("activity_node", "insights_node")
+g.add_edge("recovery_node", "insights_node")
+g.add_edge("nutrition_node", "insights_node")
+
+# NO checkpointer - compile clean
+return g.compile()
+```
+
+### Agent Implementation Pattern
+
+**Standard Agent Structure:**
+```python
+def agent_name(state: HealthState) -> HealthState:
+    # 1. Extract request data from state
+    req = state["health_request"]
+    
+    # 2. Build prompt with clear instructions
+    prompt_t = "You are a {role}. {instructions}"
+    vars_ = {"role": "...", ...}
+    
+    # 3. Define tools for this agent
+    tools = [tool1, tool2, tool3]
+    agent = llm.bind_tools(tools)
+    
+    # 4. Instrument with observability
+    with using_attributes(tags=["agent_type", "task"]):
+        with using_prompt_template(template=prompt_t, variables=vars_, version="v1"):
+            res = agent.invoke(messages)
+    
+    # 5. Execute tools if called
+    if getattr(res, "tool_calls", None):
+        # Collect tool calls for observability
+        # Execute via ToolNode
+        # Add synthesis step
+    
+    # 6. Return state update
+    return {"messages": [...], "agent_field": output, "tool_calls": calls}
+```
+
+### Tool Implementation Pattern
+
+**Graceful Degradation Strategy:**
+```python
+@tool
+def tool_name(workout_data: List[dict], param: Optional[str] = None) -> str:
+    """Clear description of what this tool does."""
+    # 1. Try real API first (if configured)
+    if api_key:
+        result = _search_api(query)
+        if result:
+            return _with_prefix("Context", result)
+    
+    # 2. Fall back to LLM generation
+    instruction = "Generate information about..."
+    return _llm_fallback(instruction, context)
+```
+
+**Key Principles:**
+- Always provide useful output, even without API keys
+- Use `_search_api()` for Strava/external API integration
+- Use `_llm_fallback()` when APIs unavailable
+- Keep outputs concise (200 chars default)
+- Add descriptive docstrings for LLM understanding
+
+## Adding New Features
+
+### Adding a New Agent
+1. Create agent function following standard pattern
+2. Add agent output field to HealthState TypedDict
+3. Add node to graph: `g.add_node("agent_node", agent_function)`
+4. Wire edges appropriately (parallel or sequential)
+5. Add tools specific to this agent's domain
+6. Update synthesis agent to incorporate new data
+
+### Adding a New Tool
+1. Use `@tool` decorator
+2. Include detailed docstring (LLM reads this!)
+3. Implement graceful degradation (API → LLM fallback)
+4. Add to appropriate agent's tools list
+5. Test with and without API keys
+
+### Modifying Graph Structure
+- **For parallel execution**: Add edge from START to new node
+- **For sequential**: Chain with `add_edge(source, target)`
+- **NEVER use checkpointer** (causes state issues between requests)
+- Test that all agents execute consistently
+
+## Strava Integration
+
+### OAuth Flow
+- StravaClient handles authorization URL generation
+- Callback endpoint exchanges code for tokens
+- Tokens stored in database with expiration tracking
+- Automatic token refresh when needed
+
+### Activity Sync
+- `sync_recent_activities()` fetches and stores workouts
+- Webhook support for real-time updates
+- Deduplication via strava_activity_id
+- Converts Strava data to internal format
+
+### Adding Strava Features
+```python
+# New Strava tool example
+@tool
+def get_activity_details(activity_id: str) -> dict:
+    """Get detailed Strava activity data."""
+    # Implementation with error handling
+    pass
+```
+
+## Database Models
+
+### User Model
+- Stores Strava OAuth tokens
+- Single-user mode (user_id=1)
+- Weight and profile data
+
+### Workout Model
+- Strava activity data
+- Performance metrics (pace, power, HR)
+- Imperial units (miles, feet)
+- Deduplication via strava_activity_id
+
+### Nutrition Model
+- Daily nutrition logs
+- AI estimates vs manual entry
+- Macronutrient breakdown
+- Source descriptions for AI estimates
+
+## Environment Variables
+
+### Required (choose one)
+- `OPENAI_API_KEY` - OpenAI API key
+- `OPENROUTER_API_KEY` + `OPENROUTER_MODEL` - OpenRouter config
+
+### Optional Features
+- `STRAVA_CLIENT_ID` + `STRAVA_CLIENT_SECRET` - Strava integration
+- `ARIZE_SPACE_ID` + `ARIZE_API_KEY` - Observability tracing
+- `TEST_MODE=1` - Use fake LLM for unit tests
+
+### Performance Tuning
+- `MAX_WORKOUTS_PER_ANALYSIS=30` - Limit data for faster analysis
+- `CACHE_ENABLED=1` - Enable result caching
+- `LITE_MODE=1` - Skip expensive correlations
+
+## Observability & Tracing
+
+### Arize Integration
+- Initialize tracing ONCE at module level (not per request!)
+- Use `using_attributes()` for span metadata
+- Use `using_prompt_template()` for prompt tracking
+- Set span attributes: `agent_type`, `agent_node`, custom fields
+
+### Best Practices
+- Wrap agent invocations in observability contexts
+- Track tool calls explicitly in state
+- Add metadata for session/user tracking
+- Use tags for filtering traces by agent/task type
+
+## Testing Guidelines
+
+### Manual Testing
+```bash
+# Health check
+curl http://localhost:8001/health
+
+# Nutrition estimation
+curl -X POST http://localhost:8001/api/nutrition/estimate \
+  -H "Content-Type: application/json" \
+  -d '{"meal_description": "2 eggs, toast with avocado, coffee"}'
+
+# Full health analysis
+curl -X POST http://localhost:8001/api/analyze-health \
+  -H "Content-Type: application/json" \
+  -d '{"workouts": [...], "recovery": [...], "nutrition": [...]}'
+```
+
+### What to Test
+- Parallel agent execution consistency
+- Tool fallback behavior (with/without API keys)
+- Strava integration (OAuth flow)
+- Response time (should be ~6-7 seconds)
+- State accumulation across agents
+
+## Common Issues & Solutions
+
+### Duplicate Traces
+- Ensure tracing initialized at module level only
+- Check LangChainInstrumentor().instrument() called once
+
+### Inconsistent Agent Execution
+- Remove any MemorySaver/checkpointer usage
+- Verify graph edges are correct
+- Check that state is fresh per request
+
+### Strava Not Working
+- Verify STRAVA_CLIENT_ID and STRAVA_CLIENT_SECRET set
+- Check redirect URI matches Strava app settings
+- Ensure webhook URL is publicly accessible
+
+### Slow Responses
+- Check API timeout settings (default 30s)
+- Verify parallel execution working
+- Consider faster LLM model (gpt-3.5-turbo)
+
+## File Structure
+```
+backend/
+├── health_main.py        # Core app, agents, tools, graph
+├── models.py            # SQLAlchemy database models
+├── database.py          # Database initialization
+├── strava_client.py     # Strava OAuth and API integration
+├── requirements.txt     # Python dependencies
+└── .env                 # Environment variables (git-ignored)
+
+frontend/
+├── dashboard.html       # Performance trends and readiness
+├── ai-insights.html    # AI analysis results
+├── upload.html          # Data entry and file upload
+├── settings.html        # Strava connection and config
+└── index.html          # Main landing page
+
+test scripts/
+└── synthetic_data_gen.py  # Test data generation
+```
+
+## Best Practices
+
+### Do's
+✅ Keep agents focused on single domains (activity, recovery, nutrition)
+✅ Use graceful degradation for all external calls
+✅ Document prompt templates clearly
+✅ Test with and without optional features
+✅ Add observability to all agent/tool calls
+✅ Return structured, parseable responses
+✅ Build graph fresh per request (no state persistence)
+✅ Handle Strava OAuth flow securely
+
+### Don'ts
+❌ Don't use MemorySaver/checkpointer (causes state issues)
+❌ Don't initialize tracing per request (causes duplicates)
+❌ Don't make tools dependent on specific API providers
+❌ Don't hard-code values - use environment variables
+❌ Don't skip error handling in API calls
+❌ Don't assume Strava/external APIs are available
+❌ Don't store sensitive tokens in logs
+
+## Performance Targets
+- Response time: 6-7 seconds (with parallel execution)
+- All 3 agents execute: 100% consistency
+- Graceful degradation: Always return useful output
+- No errors with minimal .env (just LLM key)
+- Strava sync: < 30 seconds for 100 activities
+
+## Learning Resources
+- LangGraph: https://langchain-ai.github.io/langgraph/
+- OpenInference: https://github.com/Arize-ai/openinference
+- Strava API: https://developers.strava.com/
+- FastAPI: https://fastapi.tiangolo.com/
+
+## When Helping Users
+- Assume they're learning multi-agent patterns
+- Explain WHY patterns are used (not just HOW)
+- Reference production best practices
+- Suggest trade-offs for different approaches
+- Help adapt this system to their use case
+- Focus on health/fitness domain applications
