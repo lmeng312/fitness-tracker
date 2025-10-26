@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Settings - Fitness Tracker</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --primary: #2563EB;
+      --success: #10B981;
+      --neutral-50: #F9FAFB;
+      --neutral-100: #F3F4F6;
+      --neutral-200: #E5E7EB;
+      --neutral-700: #374151;
+      --neutral-900: #111827;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', system-ui, sans-serif;
+      background: var(--neutral-50);
+      color: var(--neutral-900);
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    header {
+      background: white;
+      border-bottom: 2px solid var(--neutral-200);
+      padding: 1rem 2rem;
+      margin-bottom: 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--neutral-900);
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 1rem;
+    }
+
+    .btn {
+      padding: 0.5rem 1rem;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 500;
+      text-decoration: none;
+      display: inline-block;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #1D4ED8;
+    }
+
+    .btn-secondary {
+      background: var(--neutral-200);
+      color: var(--neutral-700);
+    }
+
+    .btn-secondary:hover {
+      background: var(--neutral-300);
+    }
+
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 2rem;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      margin-bottom: 2rem;
+    }
+
+    .card-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      color: var(--neutral-900);
+    }
+
+    .card-subtitle {
+      font-size: 0.875rem;
+      color: var(--neutral-700);
+      margin-bottom: 1.5rem;
+    }
+
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+
+    label {
+      display: block;
+      font-weight: 500;
+      margin-bottom: 0.5rem;
+      color: var(--neutral-700);
+    }
+
+    .label-required::after {
+      content: ' *';
+      color: #EF4444;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid var(--neutral-200);
+      border-radius: 6px;
+      font-size: 1rem;
+      font-family: inherit;
+    }
+
+    input:focus, select:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+
+    .help-text {
+      font-size: 0.875rem;
+      color: var(--neutral-700);
+      margin-top: 0.25rem;
+    }
+
+    .success-message {
+      background: #D1FAE5;
+      color: #065F46;
+      padding: 1rem;
+      border-radius: 6px;
+      margin-bottom: 1rem;
+      display: none;
+    }
+
+    .error-message {
+      background: #FEE2E2;
+      color: #991B1B;
+      padding: 1rem;
+      border-radius: 6px;
+      margin-bottom: 1rem;
+      display: none;
+    }
+
+    .last-updated {
+      font-size: 0.875rem;
+      color: var(--neutral-700);
+      text-align: center;
+      margin-top: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>✨ Fitness Tracker</h1>
+    <div class="header-actions">
+      <a href="/dashboard.html" class="btn btn-secondary">← Back to Dashboard</a>
+    </div>
+  </header>
+
+  <div class="container">
+    <div class="card">
+      <h2 class="card-title">⚙️ User Profile Settings</h2>
+      <p class="card-subtitle">These settings are used to calculate personalized nutrition goals based on your body weight and training load.</p>
+      
+      <div id="success-message" class="success-message">
+        ✅ Settings saved successfully!
+      </div>
+      
+      <div id="error-message" class="error-message">
+        ❌ <span id="error-text"></span>
+      </div>
+
+      <form id="settings-form">
+        <div class="form-group">
+          <label for="weight" class="label-required">Body Weight</label>
+          <input 
+            type="number" 
+            id="weight" 
+            name="weight" 
+            min="80" 
+            max="400" 
+            step="0.1" 
+            required
+            placeholder="Enter your weight in lbs"
+          >
+          <p class="help-text">Used to calculate protein, carbs, and fat goals (80-400 lbs)</p>
+        </div>
+
+        <div class="form-group">
+          <label for="age">Age</label>
+          <input 
+            type="number" 
+            id="age" 
+            name="age" 
+            min="13" 
+            max="100" 
+            placeholder="Optional"
+          >
+          <p class="help-text">Optional: May be used for future personalization</p>
+        </div>
+
+        <div class="form-group">
+          <label for="gender">Gender</label>
+          <select id="gender" name="gender">
+            <option value="other">Prefer not to say</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+          </select>
+          <p class="help-text">Optional: May be used for future personalization</p>
+        </div>
+
+        <div class="form-group">
+          <label for="activity-level">Baseline Activity Level</label>
+          <select id="activity-level" name="activity-level">
+            <option value="active">Active (training regularly)</option>
+            <option value="moderate">Moderate (occasional exercise)</option>
+            <option value="sedentary">Sedentary (minimal exercise)</option>
+          </select>
+          <p class="help-text">Your typical activity level outside of tracked workouts</p>
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="width: 100%;">
+          💾 Save Settings
+        </button>
+      </form>
+
+      <p class="last-updated" id="last-updated"></p>
+    </div>
+
+    <!-- Strava Connection Card -->
+    <div class="card">
+      <h2 class="card-title">🏃 Connect to Strava</h2>
+      
+      <div id="strava-disconnected" style="display: none;">
+        <p style="color: var(--neutral-700); margin-bottom: 1rem;">
+          Connect your Strava account to automatically import your workouts.
+        </p>
+        <button onclick="connectStrava()" class="btn btn-primary" style="width: 100%;">
+          🔗 Connect to Strava
+        </button>
+      </div>
+      
+      <div id="strava-connected" style="display: none;">
+        <p style="color: var(--success); margin-bottom: 1rem;">
+          ✅ Connected to Strava (User ID: <span id="strava-user-id"></span>)
+        </p>
+        <div style="display: flex; gap: 0.5rem;">
+          <button onclick="syncStrava()" class="btn btn-secondary" style="flex: 1;">
+            🔄 Sync Now
+          </button>
+          <button onclick="disconnectStrava()" class="btn btn-secondary" style="flex: 1;">
+            ❌ Disconnect
+          </button>
+        </div>
+        <p id="sync-status" style="margin-top: 0.5rem; font-size: 0.875rem; color: var(--neutral-600);"></p>
+      </div>
+      
+      <div id="strava-loading" style="text-align: center; padding: 1rem;">
+        <p style="color: var(--neutral-600);">Loading Strava status...</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 class="card-title">📊 How Goals Are Calculated</h2>
+      <p style="margin-bottom: 1rem;">Your daily nutrition goals are calculated using evidence-based formulas for endurance athletes:</p>
+      
+      <ul style="line-height: 2; padding-left: 1.5rem;">
+        <li><strong>Protein:</strong> 0.82g per lb body weight (increased by 0.09g on high-intensity days)</li>
+        <li><strong>Carbs:</strong> 2.27-3.18g per lb based on your 7-day rolling training load</li>
+        <li><strong>Fat:</strong> 0.41g per lb body weight</li>
+        <li><strong>Calories:</strong> Sum of protein (4 cal/g) + carbs (4 cal/g) + fat (9 cal/g)</li>
+      </ul>
+
+      <p style="margin-top: 1rem; font-size: 0.875rem; color: var(--neutral-700);">
+        <strong>High-volume training days:</strong> When today's workout calories exceed your 7-day average by 50%, goals automatically increase to support recovery and performance.
+      </p>
+    </div>
+  </div>
+
+  <script>
+    // Load existing settings on page load
+    function loadSettings() {
+      const profile = JSON.parse(localStorage.getItem('userProfile') || 'null');
+      
+      if (profile) {
+        document.getElementById('weight').value = profile.weight_lbs || '';
+        document.getElementById('age').value = profile.age || '';
+        document.getElementById('gender').value = profile.gender || 'other';
+        document.getElementById('activity-level').value = profile.activity_level || 'active';
+        
+        if (profile.last_updated) {
+          const date = new Date(profile.last_updated);
+          document.getElementById('last-updated').textContent = 
+            `Last updated: ${date.toLocaleDateString()} at ${date.toLocaleTimeString()}`;
+        }
+      }
+    }
+
+    // Save settings
+    document.getElementById('settings-form').addEventListener('submit', function(e) {
+      e.preventDefault();
+      
+      const weight = parseFloat(document.getElementById('weight').value);
+      const age = parseInt(document.getElementById('age').value) || 30;
+      const gender = document.getElementById('gender').value;
+      const activityLevel = document.getElementById('activity-level').value;
+      
+      // Validate weight
+      if (!weight || weight < 80 || weight > 400) {
+        showError('Please enter a valid weight between 80 and 400 lbs');
+        return;
+      }
+      
+      // Create profile object
+      const profile = {
+        weight_lbs: weight,
+        age: age,
+        gender: gender,
+        activity_level: activityLevel,
+        last_updated: new Date().toISOString()
+      };
+      
+      // Save to localStorage
+      try {
+        localStorage.setItem('userProfile', JSON.stringify(profile));
+        showSuccess();
+        
+        // Update last updated display
+        const date = new Date(profile.last_updated);
+        document.getElementById('last-updated').textContent = 
+          `Last updated: ${date.toLocaleDateString()} at ${date.toLocaleTimeString()}`;
+        
+        // Redirect to dashboard after 1.5 seconds
+        setTimeout(() => {
+          window.location.href = '/dashboard.html';
+        }, 1500);
+      } catch (error) {
+        showError('Failed to save settings: ' + error.message);
+      }
+    });
+
+    function showSuccess() {
+      document.getElementById('success-message').style.display = 'block';
+      document.getElementById('error-message').style.display = 'none';
+      
+      setTimeout(() => {
+        document.getElementById('success-message').style.display = 'none';
+      }, 3000);
+    }
+
+    function showError(message) {
+      document.getElementById('error-text').textContent = message;
+      document.getElementById('error-message').style.display = 'block';
+      document.getElementById('success-message').style.display = 'none';
+    }
+
+    // Load settings on page load
+    loadSettings();
+    
+    // ============================================================================
+    // STRAVA INTEGRATION
+    // ============================================================================
+    
+    // Check Strava connection status
+    async function checkStravaStatus() {
+      try {
+        const response = await fetch('/auth/strava/status');
+        const data = await response.json();
+        
+        document.getElementById('strava-loading').style.display = 'none';
+        
+        if (data.connected) {
+          document.getElementById('strava-connected').style.display = 'block';
+          document.getElementById('strava-disconnected').style.display = 'none';
+          document.getElementById('strava-user-id').textContent = data.strava_user_id;
+        } else {
+          document.getElementById('strava-connected').style.display = 'none';
+          document.getElementById('strava-disconnected').style.display = 'block';
+        }
+      } catch (error) {
+        console.error('Error checking Strava status:', error);
+        document.getElementById('strava-loading').innerHTML = 
+          '<p style="color: var(--error);">Error loading Strava status</p>';
+      }
+    }
+    
+    // Connect to Strava
+    function connectStrava() {
+      window.location.href = '/auth/strava/login';
+    }
+    
+    // Disconnect from Strava
+    async function disconnectStrava() {
+      if (!confirm('Are you sure you want to disconnect Strava? Your existing workout data will not be deleted.')) {
+        return;
+      }
+      
+      try {
+        const response = await fetch('/auth/strava/disconnect', {
+          method: 'POST'
+        });
+        
+        if (response.ok) {
+          alert('✅ Strava disconnected successfully');
+          checkStravaStatus();
+        } else {
+          alert('❌ Error disconnecting Strava');
+        }
+      } catch (error) {
+        console.error('Error disconnecting Strava:', error);
+        alert('❌ Error disconnecting Strava');
+      }
+    }
+    
+    // Sync Strava workouts
+    async function syncStrava() {
+      const syncStatus = document.getElementById('sync-status');
+      syncStatus.textContent = '⏳ Syncing...';
+      syncStatus.style.color = 'var(--neutral-600)';
+      
+      try {
+        const response = await fetch('/auth/strava/sync', {
+          method: 'POST'
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+          syncStatus.textContent = `✅ ${data.message}`;
+          syncStatus.style.color = 'var(--success)';
+        } else {
+          syncStatus.textContent = `❌ ${data.detail || 'Sync failed'}`;
+          syncStatus.style.color = 'var(--error)';
+        }
+      } catch (error) {
+        console.error('Error syncing Strava:', error);
+        syncStatus.textContent = '❌ Error syncing Strava';
+        syncStatus.style.color = 'var(--error)';
+      }
+    }
+    
+    // Check for Strava connection callback
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('strava') === 'connected') {
+      alert('✅ Strava connected successfully! Your workouts have been synced.');
+      // Remove query parameter from URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (urlParams.get('strava') === 'error') {
+      alert('❌ Error connecting to Strava. Please try again.');
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+    
+    // Load Strava status on page load
+    checkStravaStatus();
+  </script>
+</body>
+</html>
+

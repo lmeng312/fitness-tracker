@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>AI Health Insights - Fitness Tracker</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --primary: #2563EB;
+      --success: #10B981;
+      --warning: #F59E0B;
+      --danger: #EF4444;
+      --info: #3B82F6;
+      --neutral-50: #F9FAFB;
+      --neutral-100: #F3F4F6;
+      --neutral-200: #E5E7EB;
+      --neutral-700: #374151;
+      --neutral-900: #111827;
+      --font-sans: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', system-ui, sans-serif;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--neutral-50);
+      color: var(--neutral-900);
+      line-height: 1.6;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: white;
+      border-bottom: 2px solid var(--neutral-200);
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    h1 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: var(--primary);
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 1rem;
+    }
+
+    .btn {
+      padding: 0.625rem 1.25rem;
+      border-radius: 8px;
+      border: none;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 0.875rem;
+      text-decoration: none;
+      display: inline-block;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #1D4ED8;
+    }
+
+    .btn-secondary {
+      background: white;
+      color: var(--neutral-700);
+      border: 1px solid var(--neutral-200);
+    }
+
+    .btn-secondary:hover {
+      background: var(--neutral-50);
+    }
+
+    .btn-icon {
+      background: transparent;
+      color: var(--neutral-500);
+      border: none;
+      padding: 0.5rem;
+      font-size: 1.25rem;
+      cursor: pointer;
+      border-radius: 0.375rem;
+      transition: all 0.2s ease;
+    }
+    
+    .btn-icon:hover {
+      background: var(--neutral-100);
+      color: var(--neutral-700);
+    }
+
+    .main-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem;
+      width: 100%;
+    }
+
+    .ai-header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    .ai-header h2 {
+      font-size: 2rem;
+      color: var(--neutral-900);
+      margin-bottom: 0.5rem;
+    }
+
+    .ai-header p {
+      color: var(--neutral-700);
+      font-size: 1.125rem;
+    }
+
+    .chat-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+
+    .chat-messages {
+      flex: 1;
+      padding: 1.5rem;
+      overflow-y: auto;
+      max-height: calc(100vh - 300px);
+    }
+
+    .message {
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+    }
+
+    .message.user {
+      flex-direction: row-reverse;
+    }
+
+    .message-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.875rem;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    .message.user .message-avatar {
+      background: var(--primary);
+      color: white;
+    }
+
+    .message.ai .message-avatar {
+      background: var(--neutral-200);
+      color: var(--neutral-700);
+    }
+
+    .message-content {
+      background: var(--neutral-100);
+      padding: 0.75rem 1rem;
+      border-radius: 12px;
+      max-width: 70%;
+      font-size: 0.875rem;
+      line-height: 1.6;
+    }
+
+    .message-content p {
+      margin: 0;
+    }
+
+    .message-content strong {
+      color: var(--neutral-900);
+      font-weight: 600;
+    }
+
+    .message.user .message-content {
+      background: var(--primary);
+      color: white;
+    }
+
+    .message.user .message-content strong {
+      color: white;
+    }
+
+    .message-actions {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    .btn-stop, .btn-regenerate {
+      transition: all 0.2s ease;
+    }
+
+    .btn-stop:hover {
+      background: #DC2626 !important;
+    }
+
+    .btn-regenerate:hover {
+      background: var(--neutral-300) !important;
+    }
+
+    .chat-input-container {
+      padding: 1.5rem;
+      border-top: 1px solid var(--neutral-200);
+      background: white;
+    }
+
+    .chat-input-wrapper {
+      display: flex;
+      gap: 0.75rem;
+      align-items: flex-end;
+    }
+
+    .chat-input {
+      flex: 1;
+      padding: 0.75rem 1rem;
+      border: 1px solid var(--neutral-200);
+      border-radius: 8px;
+      font-size: 0.875rem;
+      resize: none;
+      min-height: 44px;
+      max-height: 120px;
+      font-family: inherit;
+    }
+
+    .chat-input:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+
+    .send-button {
+      padding: 0.75rem 1.5rem;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 0.875rem;
+    }
+
+    .send-button:hover {
+      background: #1D4ED8;
+    }
+
+    .send-button:disabled {
+      background: var(--neutral-200);
+      color: var(--neutral-500);
+      cursor: not-allowed;
+    }
+
+    .loading {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: var(--neutral-600);
+      font-size: 0.875rem;
+    }
+
+    .loading-dots {
+      display: inline-block;
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: var(--neutral-400);
+      animation: loading 1.4s infinite ease-in-out both;
+    }
+
+    .loading-dots:nth-child(1) { animation-delay: -0.32s; }
+    .loading-dots:nth-child(2) { animation-delay: -0.16s; }
+
+    @keyframes loading {
+      0%, 80%, 100% {
+        transform: scale(0);
+      }
+      40% {
+        transform: scale(1);
+      }
+    }
+
+    .quick-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .quick-action {
+      padding: 0.5rem 1rem;
+      background: var(--neutral-100);
+      border: 1px solid var(--neutral-200);
+      border-radius: 20px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .quick-action:hover {
+      background: var(--primary);
+      color: white;
+      border-color: var(--primary);
+    }
+
+    .error-message {
+      background: #FEE2E2;
+      border: 1px solid var(--danger);
+      color: #991B1B;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+    }
+
+    .welcome-message {
+      text-align: center;
+      padding: 2rem;
+      color: var(--neutral-600);
+    }
+
+    .welcome-message h3 {
+      color: var(--neutral-900);
+      margin-bottom: 0.5rem;
+    }
+
+    @media (max-width: 768px) {
+      .main-content {
+        padding: 1rem;
+      }
+      
+      .chat-messages {
+        padding: 1rem;
+      }
+      
+      .message-content {
+        max-width: 85%;
+      }
+      
+      .chat-input-container {
+        padding: 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🏃 Fitness Tracker</h1>
+    <div class="header-actions">
+      <a href="/dashboard.html" class="btn btn-secondary">📊 Dashboard</a>
+      <a href="/settings.html" class="btn btn-secondary">⚙️ Settings</a>
+      <a href="/upload.html" class="btn btn-primary">📁 Upload</a>
+    </div>
+  </header>
+
+  <div class="main-content">
+    <div class="ai-header">
+      <h2>✨ AI Health Insights</h2>
+      <p>Ask me anything about your fitness data, training patterns, and health trends</p>
+    </div>
+
+    <div class="chat-container">
+      <div class="chat-messages" id="chat-messages">
+        <div class="welcome-message">
+          <h3>🤖 Welcome to AI Health Insights!</h3>
+          <p>I can help you analyze your training data, nutrition patterns, and provide personalized recommendations.</p>
+        </div>
+        
+        <div class="quick-actions">
+          <div class="quick-action" onclick="askQuickQuestion('How is my running pace trending?')">📈 Pace Trends</div>
+          <div class="quick-action" onclick="askQuickQuestion('What should I focus on for better nutrition?')">🥗 Nutrition Tips</div>
+          <div class="quick-action" onclick="askQuickQuestion('How many calories should I eat today?')">🔥 Calorie Goals</div>
+          <div class="quick-action" onclick="askQuickQuestion('What workouts should I do this week?')">💪 Workout Plan</div>
+          <div class="quick-action" onclick="askQuickQuestion('Analyze my recent performance')">🧠 Full Analysis</div>
+        </div>
+      </div>
+
+      <div class="chat-input-container">
+        <div class="chat-input-wrapper">
+          <textarea 
+            id="chat-input" 
+            class="chat-input" 
+            placeholder="Ask me about your fitness data, trends, or get personalized recommendations..."
+            rows="1"
+          ></textarea>
+          <button id="send-button" class="send-button" onclick="sendMessage()">Send</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = window.location.origin.replace(':8000', ':8001');
+    let currentUserData = null;
+    let isLoading = false;
+    let currentRequestController = null;
+
+    // Auto-resize textarea
+    const chatInput = document.getElementById('chat-input');
+    chatInput.addEventListener('input', function() {
+      this.style.height = 'auto';
+      this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+    });
+
+    // Send message on Enter (but allow Shift+Enter for new lines)
+    chatInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+
+    function askQuickQuestion(question) {
+      chatInput.value = question;
+      sendMessage();
+    }
+
+    function formatMessage(content) {
+      // Convert basic markdown-style formatting to HTML
+      let formatted = content;
+      
+      // Bold text (**text**)
+      formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+      
+      // Bullet points (• or -)
+      formatted = formatted.replace(/^[•\-]\s+(.+)$/gm, '<div style="margin-left: 1rem; margin-bottom: 0.25rem;">• $1</div>');
+      
+      // Line breaks (double newline to paragraph)
+      formatted = formatted.split('\n\n').map(para => para.trim()).filter(p => p).join('</p><p style="margin-bottom: 0.5rem;">');
+      formatted = '<p style="margin-bottom: 0.5rem;">' + formatted + '</p>';
+      
+      // Highlight numbers and percentages
+      formatted = formatted.replace(/(\d+\.?\d*%?)\s*(miles|mi|km|cal|g|lbs|kg|hours?|min|bpm)/gi, 
+        '<span style="color: var(--primary); font-weight: 600;">$1 $2</span>');
+      
+      return formatted;
+    }
+
+    function addMessage(content, isUser = false, isLoading = false, messageId = null) {
+      const chatMessages = document.getElementById('chat-messages');
+      
+      // Remove welcome message if it exists
+      const welcomeMessage = chatMessages.querySelector('.welcome-message');
+      if (welcomeMessage) {
+        welcomeMessage.remove();
+      }
+
+      const messageDiv = document.createElement('div');
+      messageDiv.className = `message ${isUser ? 'user' : 'ai'}`;
+      if (messageId) {
+        messageDiv.setAttribute('data-message-id', messageId);
+      }
+      
+      const avatar = document.createElement('div');
+      avatar.className = 'message-avatar';
+      avatar.textContent = isUser ? 'You' : 'AI';
+      
+      const contentDiv = document.createElement('div');
+      contentDiv.className = 'message-content';
+      
+      if (isLoading) {
+        contentDiv.innerHTML = `
+          <div class="loading">
+            <span>Analyzing your data</span>
+            <div class="loading-dots"></div>
+            <div class="loading-dots"></div>
+            <div class="loading-dots"></div>
+          </div>
+          <div class="message-actions" style="margin-top: 0.75rem;">
+            <button class="btn-stop" onclick="stopCurrentRequest()" style="background: var(--danger); color: white; border: none; padding: 0.25rem 0.75rem; border-radius: 4px; font-size: 0.75rem; cursor: pointer;">⏹️ Stop</button>
+          </div>
+        `;
+      } else {
+        if (isUser) {
+          contentDiv.textContent = content;
+        } else {
+          // Format AI responses with markdown-like styling
+          contentDiv.innerHTML = formatMessage(content);
+          
+          // Add regenerate button for AI responses
+          const actionsDiv = document.createElement('div');
+          actionsDiv.className = 'message-actions';
+          actionsDiv.style.marginTop = '0.75rem';
+          actionsDiv.innerHTML = `
+            <button class="btn-regenerate" onclick="regenerateResponse('${messageId || Date.now()}')" style="background: var(--neutral-200); color: var(--neutral-700); border: none; padding: 0.25rem 0.75rem; border-radius: 4px; font-size: 0.75rem; cursor: pointer; margin-right: 0.5rem;">🔄 Regenerate</button>
+          `;
+          contentDiv.appendChild(actionsDiv);
+        }
+      }
+      
+      messageDiv.appendChild(avatar);
+      messageDiv.appendChild(contentDiv);
+      chatMessages.appendChild(messageDiv);
+      
+      // Scroll to bottom
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+      
+      return messageDiv;
+    }
+
+    let lastQuestion = null;
+    let lastMessageId = null;
+
+    async function sendMessage() {
+      const input = document.getElementById('chat-input');
+      const message = input.value.trim();
+      
+      if (!message || isLoading) return;
+      
+      // Clear input
+      input.value = '';
+      input.style.height = 'auto';
+      
+      // Store question for regeneration
+      lastQuestion = message;
+      lastMessageId = Date.now().toString();
+      
+      // Add user message
+      addMessage(message, true);
+      
+      // Show loading
+      const loadingMessage = addMessage('', false, true, lastMessageId);
+      
+      try {
+        isLoading = true;
+        
+        // Load user data if not already loaded
+        if (!currentUserData) {
+          await loadUserData();
+        }
+        
+        if (!currentUserData) {
+          throw new Error('Unable to load your health data');
+        }
+        
+        // Create abort controller for this request
+        currentRequestController = new AbortController();
+        
+        // Send to AI
+        const response = await fetch(`${API_BASE}/api/ask-question`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            question: message,
+            user_data: currentUserData
+          }),
+          signal: currentRequestController.signal
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Server error: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        
+        // Replace loading message with AI response
+        loadingMessage.remove();
+        addMessage(result.answer, false, false, lastMessageId);
+        
+      } catch (error) {
+        console.error('Error sending message:', error);
+        
+        // Replace loading message with error (unless it was aborted)
+        loadingMessage.remove();
+        if (error.name === 'AbortError') {
+          addMessage('Request cancelled', false, false, lastMessageId);
+        } else {
+          addMessage(`Sorry, I encountered an error: ${error.message}. Please try again.`, false, false, lastMessageId);
+        }
+      } finally {
+        isLoading = false;
+        currentRequestController = null;
+      }
+    }
+
+    function stopCurrentRequest() {
+      if (currentRequestController) {
+        currentRequestController.abort();
+        console.log('Request cancelled by user');
+      }
+    }
+
+    async function regenerateResponse(messageId) {
+      if (!lastQuestion || isLoading) return;
+      
+      // Find the message to replace
+      const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+      if (!messageElement) return;
+      
+      // Remove the old AI response
+      messageElement.remove();
+      
+      // Show loading for regeneration
+      const loadingMessage = addMessage('', false, true, messageId);
+      
+      try {
+        isLoading = true;
+        
+        // Create abort controller for this request
+        currentRequestController = new AbortController();
+        
+        // Send the same question again
+        const response = await fetch(`${API_BASE}/api/ask-question`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            question: lastQuestion,
+            user_data: currentUserData
+          }),
+          signal: currentRequestController.signal
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Server error: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        
+        // Replace loading message with new AI response
+        loadingMessage.remove();
+        addMessage(result.answer, false, false, messageId);
+        
+      } catch (error) {
+        console.error('Error regenerating response:', error);
+        
+        // Replace loading message with error (unless it was aborted)
+        loadingMessage.remove();
+        if (error.name === 'AbortError') {
+          addMessage('Request cancelled', false, false, messageId);
+        } else {
+          addMessage(`Sorry, I encountered an error: ${error.message}. Please try again.`, false, false, messageId);
+        }
+      } finally {
+        isLoading = false;
+        currentRequestController = null;
+      }
+    }
+
+    async function loadUserData() {
+      try {
+        const response = await fetch('/backend/my_strava_data.json');
+        if (response.ok) {
+          currentUserData = await response.json();
+          console.log('✅ User data loaded for AI insights');
+        } else {
+          throw new Error('Could not load health data');
+        }
+      } catch (error) {
+        console.error('Error loading user data:', error);
+        throw error;
+      }
+    }
+
+    // Load user data on page load
+    window.addEventListener('DOMContentLoaded', async () => {
+      try {
+        await loadUserData();
+      } catch (error) {
+        console.log('Could not load user data initially:', error);
+        // User can still try to ask questions, we'll load data when needed
+      }
+    });
+  </script>
+</body>
+</html>

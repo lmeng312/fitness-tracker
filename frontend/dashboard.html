@@ -1,0 +1,1938 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>AI Health Tracker - Live Dashboard (Imperial Units)</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --primary: #2563EB;
+      --success: #10B981;
+      --warning: #F59E0B;
+      --danger: #EF4444;
+      --info: #3B82F6;
+      --neutral-50: #F9FAFB;
+      --neutral-100: #F3F4F6;
+      --neutral-200: #E5E7EB;
+      --neutral-700: #374151;
+      --neutral-900: #111827;
+      --font-sans: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', system-ui, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--neutral-50);
+      color: var(--neutral-900);
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    header {
+      background: white;
+      border-bottom: 2px solid var(--neutral-200);
+      padding: 1rem 2rem;
+      margin-bottom: 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    h1 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: var(--primary);
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+    }
+
+    .btn {
+      padding: 0.625rem 1.25rem;
+      border-radius: 8px;
+      border: none;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 0.875rem;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #1D4ED8;
+    }
+
+    .btn-secondary {
+      background: white;
+      color: var(--neutral-700);
+      border: 1px solid var(--neutral-200);
+    }
+
+    .btn-small {
+      padding: 0.25rem 0.75rem;
+      font-size: 0.75rem;
+      border: none;
+    }
+
+    .btn-icon {
+      background: transparent;
+      color: var(--neutral-500);
+      border: none;
+      padding: 0.5rem;
+      font-size: 1.25rem;
+      cursor: pointer;
+      border-radius: 0.375rem;
+      transition: all 0.2s ease;
+    }
+    
+    .btn-icon:hover {
+      background: var(--neutral-100);
+      color: var(--neutral-700);
+    }
+
+    .loading {
+      text-align: center;
+      padding: 4rem;
+      font-size: 1.25rem;
+      color: var(--neutral-700);
+    }
+
+    .error {
+      background: #FEE2E2;
+      border: 2px solid var(--danger);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin: 2rem 0;
+      color: #991B1B;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 2rem;
+      margin-bottom: 2rem;
+    }
+
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 1.5rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .card-title {
+      font-size: 1.125rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      color: var(--neutral-900);
+    }
+
+
+    .score-value {
+      font-size: 4rem;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      color: var(--primary);
+    }
+
+    .score-label {
+      font-size: 0.875rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--neutral-700);
+      margin-top: 0.5rem;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .stat-item {
+      text-align: center;
+      padding: 1rem;
+      background: var(--neutral-50);
+      border-radius: 8px;
+    }
+
+    .stat-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      color: var(--neutral-900);
+    }
+
+    .stat-label {
+      font-size: 0.75rem;
+      color: var(--neutral-700);
+      margin-top: 0.25rem;
+    }
+
+    .insight-box {
+      padding: 1rem;
+      background: var(--neutral-50);
+      border-left: 4px solid var(--info);
+      border-radius: 8px;
+      margin-bottom: 0.75rem;
+      font-size: 0.875rem;
+    }
+
+    .insight-box.success {
+      background: #D1FAE5;
+      border-left-color: var(--success);
+    }
+
+    .insight-box.warning {
+      background: #FEF3C7;
+      border-left-color: var(--warning);
+    }
+
+    .chart-container {
+      height: 250px;
+      margin-top: 1rem;
+    }
+
+    .nutrition-macros {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .macro-item {
+      padding: 1rem;
+      background: var(--neutral-50);
+      border-radius: 8px;
+      text-align: center;
+    }
+
+    .macro-value {
+      font-size: 1.25rem;
+      font-weight: 700;
+      font-family: var(--font-mono);
+    }
+
+    .macro-progress {
+      height: 4px;
+      background: var(--neutral-200);
+      border-radius: 2px;
+      margin-top: 0.5rem;
+      overflow: hidden;
+    }
+
+    .macro-progress-bar {
+      height: 100%;
+      background: var(--success);
+      transition: width 0.3s;
+    }
+
+    .correlation-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.75rem;
+      background: var(--neutral-50);
+      border-radius: 8px;
+      margin-bottom: 0.5rem;
+    }
+
+    .correlation-strength {
+      font-weight: 700;
+      font-family: var(--font-mono);
+      font-size: 0.875rem;
+    }
+
+    .badge {
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .badge-success {
+      background: #D1FAE5;
+      color: #065F46;
+    }
+
+    .badge-warning {
+      background: #FEF3C7;
+      color: #92400E;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🏃 Fitness Tracker</h1>
+    <div class="header-actions">
+      <span id="polling-indicator" style="display: none; color: var(--neutral-500); font-size: 0.875rem; margin-right: 1rem;">🔄 Checking for updates...</span>
+      <a href="/settings.html" class="btn btn-secondary btn-small" style="text-decoration: none;">⚙️ Settings</a>
+      <a href="/upload.html" class="btn btn-secondary btn-small" style="text-decoration: none;">📁 Upload</a>
+      <a href="/ai-insights.html" class="btn btn-icon" title="AI Insights" style="text-decoration: none;">✨</a>
+    </div>
+  </header>
+
+  <div class="container">
+
+    <div id="loading" class="loading">
+      Loading your health data...
+    </div>
+
+    <div id="error" class="error" style="display: none;">
+      <h3>⚠️ Connection Error</h3>
+      <p id="error-message"></p>
+      <p style="margin-top: 1rem;">Make sure the backend server is running: <code>./backend/start_health_tracker.sh</code></p>
+    </div>
+
+    <div id="dashboard" style="display: none;">
+      <!-- Weekly Summary Card -->
+      <div class="card" style="margin-bottom: 2rem;">
+        <h2 class="card-title">📊 This Week's Summary</h2>
+        <div class="stats-grid">
+          <div class="stat-item">
+            <div class="stat-value" id="weekly-workouts">-</div>
+            <div class="stat-label">Workouts</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value" id="weekly-distance">-mi</div>
+            <div class="stat-label">Distance</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value" id="avg-sleep">-h</div>
+            <div class="stat-label">Avg Sleep</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value" id="weekly-net-calories">-</div>
+            <div class="stat-label">Net Calories</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value" id="avg-pace">-</div>
+            <div class="stat-label">Avg Pace</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value" id="nutrition-score">-%</div>
+            <div class="stat-label">Nutrition Score</div>
+          </div>
+        </div>
+        <div id="weekly-ai-summary" style="margin-top: 1rem; padding: 1rem; background: var(--neutral-50); border-radius: 8px; font-size: 0.875rem; color: var(--neutral-700);">
+          <div style="display: flex; align-items: center; margin-bottom: 0.5rem;">
+            <span style="margin-right: 0.5rem;">🤖</span>
+            <strong>AI Weekly Summary:</strong>
+          </div>
+          <div id="ai-summary-text">Generating summary...</div>
+        </div>
+      </div>
+
+      <!-- Main Grid -->
+      <div class="grid">
+        <!-- Pace Trends Chart -->
+          <div class="card" style="margin-bottom: 2rem;">
+            <h2 class="card-title">🏃‍♂️ Pace Trends</h2>
+            <div class="chart-container">
+              <canvas id="pace-chart"></canvas>
+            </div>
+          </div>
+
+          <!-- Calories Burned Chart -->
+          <div class="card" style="margin-bottom: 2rem;">
+            <h2 class="card-title">🔥 Calories Burned</h2>
+            <div class="chart-container">
+              <canvas id="calories-burned-chart"></canvas>
+            </div>
+          </div>
+
+          <!-- Calories Consumed Chart -->
+          <div class="card" style="margin-bottom: 2rem;">
+            <h2 class="card-title">🍽️ Calories Consumed</h2>
+            <div class="chart-container">
+              <canvas id="calories-consumed-chart"></canvas>
+            </div>
+          </div>
+
+          <!-- Net Calories Chart -->
+          <div class="card" style="margin-bottom: 2rem;">
+            <h2 class="card-title">⚖️ Net Calories</h2>
+            <div class="chart-container">
+              <canvas id="net-calories-chart"></canvas>
+            </div>
+          </div>
+
+          <!-- Macros Over Time Chart -->
+          <div class="card" style="margin-bottom: 2rem;">
+            <h2 class="card-title">🥗 Macros Over Time (% of Goal)</h2>
+            
+            <!-- Daily Targets Card -->
+            <div id="daily-targets-card" style="background: var(--neutral-50); border: 1px solid var(--neutral-200); border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem;">
+              <div style="display: flex; align-items: center; margin-bottom: 0.75rem;">
+                <span style="font-weight: 600; font-size: 0.875rem; color: var(--neutral-700);">📊 Today's Daily Targets</span>
+                <span id="high-volume-indicator" style="display: none; margin-left: 0.5rem; font-size: 0.75rem; color: #EF4444;">🔥 High-Volume Day</span>
+              </div>
+              <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; font-size: 0.875rem;">
+                <div>
+                  <div style="color: var(--neutral-600); margin-bottom: 0.25rem;">Protein</div>
+                  <div style="font-weight: 600; font-size: 1.125rem; color: var(--neutral-900);" id="target-protein">--g</div>
+                </div>
+                <div>
+                  <div style="color: var(--neutral-600); margin-bottom: 0.25rem;">Carbs</div>
+                  <div style="font-weight: 600; font-size: 1.125rem; color: var(--neutral-900);" id="target-carbs">--g</div>
+                </div>
+                <div>
+                  <div style="color: var(--neutral-600); margin-bottom: 0.25rem;">Fat</div>
+                  <div style="font-weight: 600; font-size: 1.125rem; color: var(--neutral-900);" id="target-fat">--g</div>
+                </div>
+                <div>
+                  <div style="color: var(--neutral-600); margin-bottom: 0.25rem;">Calories</div>
+                  <div style="font-weight: 600; font-size: 1.125rem; color: var(--neutral-900);" id="target-calories">--</div>
+                </div>
+              </div>
+            </div>
+            
+            <div class="chart-container">
+              <canvas id="macros-chart"></canvas>
+            </div>
+          </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = window.location.origin.replace(':8000', ':8001'); // Adjust port for backend
+
+    let performanceChart = null;
+
+    // Helper function to format pace as MM:SS
+    function formatPace(decimalMinutes) {
+      if (!decimalMinutes || decimalMinutes === 0) return 'N/A';
+      const minutes = Math.floor(decimalMinutes);
+      const seconds = Math.round((decimalMinutes - minutes) * 60);
+      return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    }
+
+    // Enhanced readiness score calculation with transparency
+    function calculateSimpleReadiness(recovery, workouts = [], showDetails = false) {
+      let score = 5.0; // Start at middle
+      const factors = [];
+      const weights = {
+        sleep: { excellent: 2.5, good: 1.5, adequate: 0.5, poor: -1 },
+        hrv: { high: 2, normal: 1, below: 0, low: -1 },
+        rhr: { excellent: 1, good: 0.5, normal: 0 },
+        training: { high: -2, moderate: -0.5, low: 0, rest: 0.5 }
+      };
+      
+      // Sleep impact (0-3 points)
+      const sleepHours = recovery.sleep_hours || 0;
+      let sleepImpact = 0;
+      if (sleepHours >= 8) {
+        sleepImpact = weights.sleep.excellent;
+        factors.push({ factor: "Sleep", value: `${sleepHours}h`, impact: sleepImpact, note: "Excellent sleep (8+ hours)" });
+      } else if (sleepHours >= 7) {
+        sleepImpact = weights.sleep.good;
+        factors.push({ factor: "Sleep", value: `${sleepHours}h`, impact: sleepImpact, note: "Good sleep (7+ hours)" });
+      } else if (sleepHours >= 6) {
+        sleepImpact = weights.sleep.adequate;
+        factors.push({ factor: "Sleep", value: `${sleepHours}h`, impact: sleepImpact, note: "Adequate sleep (6+ hours)" });
+      } else {
+        sleepImpact = weights.sleep.poor;
+        factors.push({ factor: "Sleep", value: `${sleepHours}h`, impact: sleepImpact, note: "Insufficient sleep (<6 hours)" });
+      }
+      score += sleepImpact;
+      
+      // HRV impact (0-2 points)
+      const hrv = recovery.hrv_ms || 0;
+      let hrvImpact = 0;
+      if (hrv >= 70) {
+        hrvImpact = weights.hrv.high;
+        factors.push({ factor: "HRV", value: `${hrv}ms`, impact: hrvImpact, note: "High HRV (excellent recovery)" });
+      } else if (hrv >= 55) {
+        hrvImpact = weights.hrv.normal;
+        factors.push({ factor: "HRV", value: `${hrv}ms`, impact: hrvImpact, note: "Normal HRV (good recovery)" });
+      } else if (hrv >= 45) {
+        hrvImpact = weights.hrv.below;
+        factors.push({ factor: "HRV", value: `${hrv}ms`, impact: hrvImpact, note: "Below average HRV" });
+      } else {
+        hrvImpact = weights.hrv.low;
+        factors.push({ factor: "HRV", value: `${hrv}ms`, impact: hrvImpact, note: "Low HRV (poor recovery)" });
+      }
+      score += hrvImpact;
+      
+      // RHR impact (0-1 points)
+      const rhr = recovery.rhr_bpm || 0;
+      let rhrImpact = 0;
+      if (rhr <= 50) {
+        rhrImpact = weights.rhr.excellent;
+        factors.push({ factor: "RHR", value: `${rhr}bpm`, impact: rhrImpact, note: "Excellent resting heart rate" });
+      } else if (rhr <= 60) {
+        rhrImpact = weights.rhr.good;
+        factors.push({ factor: "RHR", value: `${rhr}bpm`, impact: rhrImpact, note: "Good resting heart rate" });
+      } else {
+        factors.push({ factor: "RHR", value: `${rhr}bpm`, impact: rhrImpact, note: "Normal resting heart rate" });
+      }
+      score += rhrImpact;
+      
+      // Training intensity impact (-2 to +0.5 points)
+      const trainingImpact = calculateTrainingImpact(workouts, weights);
+      score += trainingImpact.impact;
+      factors.push(...trainingImpact.factors);
+      
+      const finalScore = Math.max(1, Math.min(10, Math.round(score)));
+      
+      if (showDetails) {
+        return {
+          score: finalScore,
+          factors: factors,
+            breakdown: {
+              base: 5.0,
+              sleep: sleepImpact,
+              hrv: hrvImpact,
+              rhr: rhrImpact,
+              training: trainingImpact.impact,
+              total: score,
+              final: finalScore
+            }
+        };
+      }
+      
+      return finalScore;
+    }
+
+    function getReadinessText(score) {
+      if (score >= 8) return 'Excellent readiness - Good day for high-intensity training';
+      else if (score >= 6) return 'Good readiness - Suitable for moderate training';
+      else return 'Low readiness - Consider rest or light activity';
+    }
+
+    function calculateTrainingImpact(workouts, weights) {
+      const factors = [];
+      let totalImpact = 0;
+      
+      if (!workouts || workouts.length === 0) {
+        factors.push({ factor: "Training", value: "No recent workouts", impact: 0, note: "No training data available" });
+        return { impact: totalImpact, factors: factors };
+      }
+      
+      // Get recent workouts (last 7 days)
+      const now = new Date();
+      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const recentWorkouts = workouts.filter(w => {
+        const workoutDate = new Date(w.date);
+        return workoutDate >= weekAgo;
+      });
+      
+      if (recentWorkouts.length === 0) {
+        factors.push({ factor: "Training", value: "No workouts this week", impact: weights.training.rest, note: "Rest week - good for recovery" });
+        return { impact: weights.training.rest, factors: factors };
+      }
+      
+      // Calculate training load and intensity
+      let totalDuration = 0;
+      let highIntensityCount = 0;
+      let moderateIntensityCount = 0;
+      let lowIntensityCount = 0;
+      
+      recentWorkouts.forEach(workout => {
+        const duration = workout.duration_min || 0;
+        totalDuration += duration;
+        
+        // Classify intensity based on heart rate, pace, or activity type
+        const avgHR = workout.avg_hr_bpm || 0;
+        const pace = workout.avg_pace_min_per_mile || 0;
+        const activityType = workout.activity_type || '';
+        
+        let intensity = 'low';
+        
+        // High intensity indicators
+        if (avgHR >= 160 || (activityType === 'running' && pace <= 7.0) || 
+            activityType === 'strength' || activityType === 'interval') {
+          intensity = 'high';
+          highIntensityCount++;
+        }
+        // Moderate intensity indicators  
+        else if (avgHR >= 140 || (activityType === 'running' && pace <= 9.0) || 
+                 activityType === 'cycling' || activityType === 'swimming') {
+          intensity = 'moderate';
+          moderateIntensityCount++;
+        }
+        else {
+          lowIntensityCount++;
+        }
+      });
+      
+      // Calculate training load score
+      const avgDailyDuration = totalDuration / 7; // Average minutes per day
+      const highIntensityRatio = highIntensityCount / recentWorkouts.length;
+      const moderateIntensityRatio = moderateIntensityCount / recentWorkouts.length;
+      
+      // Determine overall training load
+      let trainingLoad = 'low';
+      let impact = 0;
+      
+      if (avgDailyDuration >= 90 && highIntensityRatio >= 0.5) {
+        trainingLoad = 'high';
+        impact = weights.training.high;
+        factors.push({ 
+          factor: "Training", 
+          value: `${Math.round(avgDailyDuration)}min/day avg`, 
+          impact: impact, 
+          note: `High training load (${highIntensityCount} high-intensity sessions)` 
+        });
+      } else if (avgDailyDuration >= 60 || highIntensityRatio >= 0.3) {
+        trainingLoad = 'moderate';
+        impact = weights.training.moderate;
+        factors.push({ 
+          factor: "Training", 
+          value: `${Math.round(avgDailyDuration)}min/day avg`, 
+          impact: impact, 
+          note: `Moderate training load (${recentWorkouts.length} sessions)` 
+        });
+      } else {
+        trainingLoad = 'low';
+        impact = weights.training.low;
+        factors.push({ 
+          factor: "Training", 
+          value: `${Math.round(avgDailyDuration)}min/day avg`, 
+          impact: impact, 
+          note: `Light training load (${recentWorkouts.length} sessions)` 
+        });
+      }
+      
+      // Check for consecutive training days (fatigue factor)
+      const consecutiveDays = calculateConsecutiveTrainingDays(workouts);
+      if (consecutiveDays >= 5) {
+        const fatigueImpact = -1;
+        totalImpact += fatigueImpact;
+        factors.push({ 
+          factor: "Fatigue", 
+          value: `${consecutiveDays} consecutive days`, 
+          impact: fatigueImpact, 
+          note: "High consecutive training days (fatigue risk)" 
+        });
+      } else if (consecutiveDays >= 3) {
+        const fatigueImpact = -0.5;
+        totalImpact += fatigueImpact;
+        factors.push({ 
+          factor: "Fatigue", 
+          value: `${consecutiveDays} consecutive days`, 
+          impact: fatigueImpact, 
+          note: "Moderate consecutive training days" 
+        });
+      }
+      
+      totalImpact += impact;
+      return { impact: totalImpact, factors: factors };
+    }
+
+    function calculateConsecutiveTrainingDays(workouts) {
+      if (!workouts || workouts.length === 0) return 0;
+      
+      // Sort workouts by date (most recent first)
+      const sortedWorkouts = workouts
+        .filter(w => w.date)
+        .sort((a, b) => new Date(b.date) - new Date(a.date));
+      
+      if (sortedWorkouts.length === 0) return 0;
+      
+      let consecutiveDays = 0;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      for (let i = 0; i < sortedWorkouts.length; i++) {
+        const workoutDate = new Date(sortedWorkouts[i].date);
+        workoutDate.setHours(0, 0, 0, 0);
+        
+        const daysDiff = Math.floor((today - workoutDate) / (1000 * 60 * 60 * 24));
+        
+        if (daysDiff === consecutiveDays) {
+          consecutiveDays++;
+        } else {
+          break;
+        }
+      }
+      
+      return consecutiveDays;
+    }
+
+    let readinessDetails = null;
+
+    function toggleReadinessBreakdown() {
+      const breakdown = document.getElementById('readiness-breakdown');
+      const btn = document.getElementById('readiness-breakdown-btn');
+      
+      if (breakdown.style.display === 'none') {
+        breakdown.style.display = 'block';
+        btn.textContent = '📊 Hide Breakdown';
+        showReadinessBreakdown();
+      } else {
+        breakdown.style.display = 'none';
+        btn.textContent = '📊 Show Breakdown';
+      }
+    }
+
+    function showReadinessBreakdown() {
+      if (!readinessDetails) return;
+      
+      const factorsDiv = document.getElementById('readiness-factors');
+      factorsDiv.innerHTML = '';
+      
+      // Show base score
+      const baseDiv = document.createElement('div');
+      baseDiv.style.marginBottom = '0.5rem';
+      baseDiv.style.padding = '0.5rem';
+      baseDiv.style.background = 'var(--neutral-100)';
+      baseDiv.style.borderRadius = '4px';
+      baseDiv.innerHTML = `<strong>Base Score:</strong> ${readinessDetails.breakdown.base}/10`;
+      factorsDiv.appendChild(baseDiv);
+      
+      // Show each factor
+      readinessDetails.factors.forEach(factor => {
+        const factorDiv = document.createElement('div');
+        factorDiv.style.marginBottom = '0.5rem';
+        factorDiv.style.padding = '0.5rem';
+        factorDiv.style.background = factor.impact >= 0 ? '#D1FAE5' : '#FEE2E2';
+        factorDiv.style.borderRadius = '4px';
+        factorDiv.style.borderLeft = `4px solid ${factor.impact >= 0 ? '#10B981' : '#EF4444'}`;
+        
+        const impactText = factor.impact > 0 ? `+${factor.impact}` : factor.impact.toString();
+        factorDiv.innerHTML = `
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <strong>${factor.factor}:</strong> ${factor.value} 
+              <span style="color: var(--neutral-600); font-size: 0.8em;">(${factor.note})</span>
+            </div>
+            <div style="font-weight: bold; color: ${factor.impact >= 0 ? '#10B981' : '#EF4444'};">
+              ${impactText}
+            </div>
+          </div>
+        `;
+        factorsDiv.appendChild(factorDiv);
+      });
+      
+      // Show total calculation
+      const totalDiv = document.createElement('div');
+      totalDiv.style.marginTop = '0.75rem';
+      totalDiv.style.padding = '0.75rem';
+      totalDiv.style.background = 'var(--primary)';
+      totalDiv.style.color = 'white';
+      totalDiv.style.borderRadius = '4px';
+      totalDiv.style.fontWeight = 'bold';
+      totalDiv.innerHTML = `
+        <div style="display: flex; justify-content: space-between;">
+          <span>Total: ${readinessDetails.breakdown.base} + ${readinessDetails.breakdown.sleep} + ${readinessDetails.breakdown.hrv} + ${readinessDetails.breakdown.rhr} = ${readinessDetails.breakdown.total}</span>
+          <span>Final: ${readinessDetails.score}/10</span>
+        </div>
+      `;
+      factorsDiv.appendChild(totalDiv);
+    }
+
+    let customWeights = null;
+
+    function toggleWeightCustomization() {
+      const customization = document.getElementById('weight-customization');
+      const btn = document.getElementById('customize-weights-btn');
+      
+      if (customization.style.display === 'none') {
+        customization.style.display = 'block';
+        btn.textContent = '⚙️ Hide Weights';
+        showWeightControls();
+      } else {
+        customization.style.display = 'none';
+        btn.textContent = '⚙️ Customize Weights';
+      }
+    }
+
+    function showWeightControls() {
+      const controlsDiv = document.getElementById('weight-controls');
+      controlsDiv.innerHTML = '';
+      
+      const defaultWeights = {
+        sleep: { excellent: 2.5, good: 1.5, adequate: 0.5, poor: -1 },
+        hrv: { high: 2, normal: 1, below: 0, low: -1 },
+        rhr: { excellent: 1, good: 0.5, normal: 0 },
+        training: { high: -2, moderate: -0.5, low: 0, rest: 0.5 }
+      };
+      
+      if (!customWeights) {
+        customWeights = JSON.parse(JSON.stringify(defaultWeights));
+      }
+      
+      // Sleep weights
+      const sleepDiv = document.createElement('div');
+      sleepDiv.style.marginBottom = '1rem';
+      sleepDiv.innerHTML = `
+        <h6 style="margin-bottom: 0.5rem; color: var(--neutral-700);">Sleep Impact</h6>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; font-size: 0.8rem;">
+          <div>
+            <label>Excellent (8+ hours):</label>
+            <input type="number" id="sleep-excellent" value="${customWeights.sleep.excellent}" step="0.1" style="width: 60px; margin-left: 0.5rem;">
+          </div>
+          <div>
+            <label>Good (7+ hours):</label>
+            <input type="number" id="sleep-good" value="${customWeights.sleep.good}" step="0.1" style="width: 60px; margin-left: 0.5rem;">
+          </div>
+          <div>
+            <label>Adequate (6+ hours):</label>
+            <input type="number" id="sleep-adequate" value="${customWeights.sleep.adequate}" step="0.1" style="width: 60px; margin-left: 0.5rem;">
+          </div>
+          <div>
+            <label>Poor (<6 hours):</label>
+            <input type="number" id="sleep-poor" value="${customWeights.sleep.poor}" step="0.1" style="width: 60px; margin-left: 0.5rem;">
+          </div>
+        </div>
+      `;
+      controlsDiv.appendChild(sleepDiv);
+      
+      // HRV weights
+      const hrvDiv = document.createElement('div');
+      hrvDiv.style.marginBottom = '1rem';
+      hrvDiv.innerHTML = `
+        <h6 style="margin-bottom: 0.5rem; color: var(--neutral-700);">HRV Impact</h6>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; font-size: 0.8rem;">
+          <div>
+            <label>High (70+ ms):</label>
+            <input type="number" id="hrv-high" value="${customWeights.hrv.high}" step="0.1" style="width: 60px; margin-left: 0.5rem;">
+          </div>
+          <div>
+            <label>Normal (55-69 ms):</label>
+            <input type="number" id="hrv-normal" value="${customWeights.hrv.normal}" step="0.1" style="width: 60px; margin-left: 0.5rem;">
+          </div>
+          <div>
+            <label>Below (45-54 ms):</label>
+            <input type="number" id="hrv-below" value="${customWeights.hrv.below}" step="0.1" style="width: 60px; margin-left: 0.5rem;">
+          </div>
+          <div>
+            <label>Low (<45 ms):</label>
+            <input type="number" id="hrv-low" value="${customWeights.hrv.low}" step="0.1" style="width: 60px; margin-left: 0.5rem;">
+          </div>
+        </div>
+      `;
+      controlsDiv.appendChild(hrvDiv);
+      
+      // RHR weights
+      const rhrDiv = document.createElement('div');
+      rhrDiv.style.marginBottom = '1rem';
+      rhrDiv.innerHTML = `
+        <h6 style="margin-bottom: 0.5rem; color: var(--neutral-700);">RHR Impact</h6>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; font-size: 0.8rem;">
+          <div>
+            <label>Excellent (≤50 bpm):</label>
+            <input type="number" id="rhr-excellent" value="${customWeights.rhr.excellent}" step="0.1" style="width: 60px; margin-left: 0.5rem;">
+          </div>
+          <div>
+            <label>Good (51-60 bpm):</label>
+            <input type="number" id="rhr-good" value="${customWeights.rhr.good}" step="0.1" style="width: 60px; margin-left: 0.5rem;">
+          </div>
+        </div>
+      `;
+      controlsDiv.appendChild(rhrDiv);
+      
+      // Training weights
+      const trainingDiv = document.createElement('div');
+      trainingDiv.innerHTML = `
+        <h6 style="margin-bottom: 0.5rem; color: var(--neutral-700);">Training Load Impact</h6>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; font-size: 0.8rem;">
+          <div>
+            <label>High Load (90+ min/day):</label>
+            <input type="number" id="training-high" value="${customWeights.training.high}" step="0.1" style="width: 60px; margin-left: 0.5rem;">
+          </div>
+          <div>
+            <label>Moderate Load (60+ min/day):</label>
+            <input type="number" id="training-moderate" value="${customWeights.training.moderate}" step="0.1" style="width: 60px; margin-left: 0.5rem;">
+          </div>
+          <div>
+            <label>Low Load (<60 min/day):</label>
+            <input type="number" id="training-low" value="${customWeights.training.low}" step="0.1" style="width: 60px; margin-left: 0.5rem;">
+          </div>
+          <div>
+            <label>Rest Week (0 workouts):</label>
+            <input type="number" id="training-rest" value="${customWeights.training.rest}" step="0.1" style="width: 60px; margin-left: 0.5rem;">
+          </div>
+        </div>
+      `;
+      controlsDiv.appendChild(trainingDiv);
+    }
+
+    function applyCustomWeights() {
+      customWeights = {
+        sleep: {
+          excellent: parseFloat(document.getElementById('sleep-excellent').value),
+          good: parseFloat(document.getElementById('sleep-good').value),
+          adequate: parseFloat(document.getElementById('sleep-adequate').value),
+          poor: parseFloat(document.getElementById('sleep-poor').value)
+        },
+        hrv: {
+          high: parseFloat(document.getElementById('hrv-high').value),
+          normal: parseFloat(document.getElementById('hrv-normal').value),
+          below: parseFloat(document.getElementById('hrv-below').value),
+          low: parseFloat(document.getElementById('hrv-low').value)
+        },
+        rhr: {
+          excellent: parseFloat(document.getElementById('rhr-excellent').value),
+          good: parseFloat(document.getElementById('rhr-good').value),
+          normal: 0
+        },
+        training: {
+          high: parseFloat(document.getElementById('training-high').value),
+          moderate: parseFloat(document.getElementById('training-moderate').value),
+          low: parseFloat(document.getElementById('training-low').value),
+          rest: parseFloat(document.getElementById('training-rest').value)
+        }
+      };
+      
+      // Recalculate readiness with custom weights
+      if (currentUserData && currentUserData.recovery && currentUserData.recovery.length > 0) {
+        const latestRecovery = currentUserData.recovery[currentUserData.recovery.length - 1];
+        readinessDetails = calculateSimpleReadinessWithCustomWeights(latestRecovery, currentUserData.workouts || [], true);
+        
+        // Update display
+        document.getElementById('readiness-score').textContent = readinessDetails.score;
+        document.getElementById('readiness-text').textContent = `Based on latest data: ${getReadinessText(readinessDetails.score)}`;
+        
+        // Refresh breakdown if visible
+        if (document.getElementById('readiness-breakdown').style.display !== 'none') {
+          showReadinessBreakdown();
+        }
+      }
+    }
+
+    function resetWeights() {
+      customWeights = null;
+      showWeightControls();
+    }
+
+    function calculateSimpleReadinessWithCustomWeights(recovery, workouts = [], showDetails = false) {
+      let score = 5.0; // Start at middle
+      const factors = [];
+      const weights = customWeights || {
+        sleep: { excellent: 2.5, good: 1.5, adequate: 0.5, poor: -1 },
+        hrv: { high: 2, normal: 1, below: 0, low: -1 },
+        rhr: { excellent: 1, good: 0.5, normal: 0 },
+        training: { high: -2, moderate: -0.5, low: 0, rest: 0.5 }
+      };
+      
+      // Sleep impact
+      const sleepHours = recovery.sleep_hours || 0;
+      let sleepImpact = 0;
+      if (sleepHours >= 8) {
+        sleepImpact = weights.sleep.excellent;
+        factors.push({ factor: "Sleep", value: `${sleepHours}h`, impact: sleepImpact, note: "Excellent sleep (8+ hours)" });
+      } else if (sleepHours >= 7) {
+        sleepImpact = weights.sleep.good;
+        factors.push({ factor: "Sleep", value: `${sleepHours}h`, impact: sleepImpact, note: "Good sleep (7+ hours)" });
+      } else if (sleepHours >= 6) {
+        sleepImpact = weights.sleep.adequate;
+        factors.push({ factor: "Sleep", value: `${sleepHours}h`, impact: sleepImpact, note: "Adequate sleep (6+ hours)" });
+      } else {
+        sleepImpact = weights.sleep.poor;
+        factors.push({ factor: "Sleep", value: `${sleepHours}h`, impact: sleepImpact, note: "Insufficient sleep (<6 hours)" });
+      }
+      score += sleepImpact;
+      
+      // HRV impact
+      const hrv = recovery.hrv_ms || 0;
+      let hrvImpact = 0;
+      if (hrv >= 70) {
+        hrvImpact = weights.hrv.high;
+        factors.push({ factor: "HRV", value: `${hrv}ms`, impact: hrvImpact, note: "High HRV (excellent recovery)" });
+      } else if (hrv >= 55) {
+        hrvImpact = weights.hrv.normal;
+        factors.push({ factor: "HRV", value: `${hrv}ms`, impact: hrvImpact, note: "Normal HRV (good recovery)" });
+      } else if (hrv >= 45) {
+        hrvImpact = weights.hrv.below;
+        factors.push({ factor: "HRV", value: `${hrv}ms`, impact: hrvImpact, note: "Below average HRV" });
+      } else {
+        hrvImpact = weights.hrv.low;
+        factors.push({ factor: "HRV", value: `${hrv}ms`, impact: hrvImpact, note: "Low HRV (poor recovery)" });
+      }
+      score += hrvImpact;
+      
+      // RHR impact
+      const rhr = recovery.rhr_bpm || 0;
+      let rhrImpact = 0;
+      if (rhr <= 50) {
+        rhrImpact = weights.rhr.excellent;
+        factors.push({ factor: "RHR", value: `${rhr}bpm`, impact: rhrImpact, note: "Excellent resting heart rate" });
+      } else if (rhr <= 60) {
+        rhrImpact = weights.rhr.good;
+        factors.push({ factor: "RHR", value: `${rhr}bpm`, impact: rhrImpact, note: "Good resting heart rate" });
+      } else {
+        factors.push({ factor: "RHR", value: `${rhr}bpm`, impact: rhrImpact, note: "Normal resting heart rate" });
+      }
+      score += rhrImpact;
+      
+      // Training intensity impact (-2 to +0.5 points)
+      const trainingImpact = calculateTrainingImpact(workouts, weights);
+      score += trainingImpact.impact;
+      factors.push(...trainingImpact.factors);
+      
+      const finalScore = Math.max(1, Math.min(10, Math.round(score)));
+      
+      if (showDetails) {
+        return {
+          score: finalScore,
+          factors: factors,
+            breakdown: {
+              base: 5.0,
+              sleep: sleepImpact,
+              hrv: hrvImpact,
+              rhr: rhrImpact,
+              training: trainingImpact.impact,
+              total: score,
+              final: finalScore
+            }
+        };
+      }
+      
+      return finalScore;
+    }
+
+    async function loadHealthData() {
+      try {
+        console.log('🔄 Starting to load health data...');
+        
+        // Check if user profile exists, prompt if not
+        const userProfile = localStorage.getItem('userProfile');
+        if (!userProfile) {
+          const shouldSetup = confirm('Set up your profile for personalized nutrition goals?\n\nYour weight and activity level will be used to calculate daily protein, carbs, and fat targets.');
+          if (shouldSetup) {
+            window.location.href = '/settings.html';
+            return;
+          } else {
+            // Use default profile
+            localStorage.setItem('userProfile', JSON.stringify({
+              weight_lbs: 150,
+              age: 30,
+              gender: 'other',
+              activity_level: 'active'
+            }));
+            console.log('Using default profile (150 lbs). Visit Settings to personalize.');
+          }
+        }
+        
+        // Load workout data from API (database or Strava)
+        const response = await fetch('/api/workouts?days=30');
+        console.log('📡 Response status:', response.status, response.ok);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: No data found`);
+        }
+        
+        const userData = await response.json();
+        console.log('✅ Loaded your Strava data:', userData.description);
+        console.log('📊 Data structure:', {
+          workouts: userData.workouts?.length || 0,
+          nutrition: userData.nutrition?.length || 0,
+          hasWorkouts: !!userData.workouts,
+          hasNutrition: !!userData.nutrition
+        });
+        
+        // Store user data for chat
+        currentUserData = userData;
+        
+        console.log('🎨 Starting to render dashboard...');
+        // Render dashboard with your actual data
+        await renderDashboard(null, userData);
+        
+        console.log('✅ Dashboard rendered successfully');
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('dashboard').style.display = 'block';
+        
+      } catch (error) {
+        console.error('❌ Error loading health data:', error);
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('error').style.display = 'block';
+        document.getElementById('error-message').innerHTML = `
+          <div style="text-align: center; padding: 2rem;">
+            <h3 style="color: #374151; margin-bottom: 1rem;">📊 No Data Found</h3>
+            <p style="color: #6B7280; margin-bottom: 1.5rem;">
+              Upload your Strava data to see your personalized health insights and AI analysis.
+            </p>
+            <a href="/upload.html" class="btn btn-primary" style="text-decoration: none; display: inline-block;">
+              📁 Upload Your Data
+            </a>
+            <p style="color: #9CA3AF; font-size: 0.875rem; margin-top: 1rem;">
+              Supported formats: CSV, XLSX, XLS files
+            </p>
+            <details style="margin-top: 1rem; text-align: left;">
+              <summary style="cursor: pointer; color: #6B7280;">Debug Info</summary>
+              <pre style="background: #f3f4f6; padding: 0.5rem; margin-top: 0.5rem; font-size: 0.75rem; color: #374151;">${error.message}</pre>
+            </details>
+          </div>
+        `;
+      }
+    }
+
+    // Chart creation functions
+    function createPaceTrendsChart(rawData) {
+      try {
+        console.log('Creating pace trends chart...');
+        const runningWorkouts = rawData.workouts.filter(w => w.activity_type === 'running' && w.avg_pace_min_per_mile);
+        console.log('Running workouts found:', runningWorkouts.length);
+        const dates = runningWorkouts.map(w => new Date(w.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+        const paces = runningWorkouts.map(w => w.avg_pace_min_per_mile);
+
+      if (window.paceChart) {
+        window.paceChart.destroy();
+      }
+
+      const ctx = document.getElementById('pace-chart').getContext('2d');
+      window.paceChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: dates,
+          datasets: [{
+            label: 'Running Pace',
+            data: paces,
+            borderColor: '#2563EB',
+            backgroundColor: 'rgba(37, 99, 235, 0.1)',
+            borderWidth: 2,
+            fill: true,
+            tension: 0.3
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  return 'Pace: ' + formatPace(context.parsed.y) + ' /mi';
+                }
+              }
+            }
+          },
+          scales: {
+            y: {
+              reverse: true, // Lower pace is better
+              title: {
+                display: true,
+                text: 'Pace (min/mi)'
+              },
+              ticks: {
+                callback: function(value) {
+                  return formatPace(value);
+                }
+              }
+            }
+          }
+        }
+      });
+      } catch (error) {
+        console.error('Error creating pace trends chart:', error);
+      }
+    }
+
+    function createCaloriesBurnedChart(rawData) {
+      try {
+        console.log('Creating calories burned chart...');
+        const workouts = rawData.workouts.filter(w => w.calories_burned);
+        console.log('Workouts with calories found:', workouts.length);
+        const dates = workouts.map(w => new Date(w.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+        const calories = workouts.map(w => w.calories_burned);
+
+      if (window.caloriesBurnedChart) {
+        window.caloriesBurnedChart.destroy();
+      }
+
+      const ctx = document.getElementById('calories-burned-chart').getContext('2d');
+      window.caloriesBurnedChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: dates,
+          datasets: [{
+            label: 'Calories Burned',
+            data: calories,
+            backgroundColor: '#DC2626',
+            borderColor: '#B91C1C',
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  return 'Calories: ' + context.parsed.y.toLocaleString();
+                }
+              }
+            }
+          },
+          scales: {
+            y: {
+              title: {
+                display: true,
+                text: 'Calories Burned'
+              },
+              ticks: {
+                callback: function(value) {
+                  return value.toLocaleString();
+                }
+              }
+            }
+          }
+        }
+      });
+      } catch (error) {
+        console.error('Error creating calories burned chart:', error);
+      }
+    }
+
+    function createCaloriesConsumedChart(rawData) {
+      try {
+        console.log('Creating calories consumed chart...');
+        const nutrition = rawData.nutrition || [];
+        console.log('Nutrition entries found:', nutrition.length);
+        const dates = nutrition.map(n => new Date(n.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+        const calories = nutrition.map(n => n.calories);
+
+      if (window.caloriesConsumedChart) {
+        window.caloriesConsumedChart.destroy();
+      }
+
+      const ctx = document.getElementById('calories-consumed-chart').getContext('2d');
+      window.caloriesConsumedChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: dates,
+          datasets: [{
+            label: 'Calories Consumed',
+            data: calories,
+            backgroundColor: '#059669',
+            borderColor: '#047857',
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  return 'Calories: ' + context.parsed.y.toLocaleString();
+                }
+              }
+            }
+          },
+          scales: {
+            y: {
+              title: {
+                display: true,
+                text: 'Calories Consumed'
+              },
+              ticks: {
+                callback: function(value) {
+                  return value.toLocaleString();
+                }
+              }
+            }
+          }
+        }
+      });
+      } catch (error) {
+        console.error('Error creating calories consumed chart:', error);
+      }
+    }
+
+    function createNetCaloriesChart(rawData) {
+      try {
+        console.log('Creating net calories chart...');
+        // Get all unique dates from both workouts and nutrition
+        const workoutDates = new Set((rawData.workouts || []).map(w => w.date));
+        const nutritionDates = new Set((rawData.nutrition || []).map(n => n.date));
+        const allDates = [...new Set([...workoutDates, ...nutritionDates])].sort();
+        console.log('Total dates for net calories:', allDates.length);
+      
+      // Create date maps for quick lookup
+      const workoutMap = {};
+      (rawData.workouts || []).forEach(w => {
+        if (!workoutMap[w.date]) workoutMap[w.date] = 0;
+        workoutMap[w.date] += w.calories_burned || 0;
+      });
+      
+      const nutritionMap = {};
+      (rawData.nutrition || []).forEach(n => {
+        if (!nutritionMap[n.date]) nutritionMap[n.date] = 0;
+        nutritionMap[n.date] += n.calories || 0;
+      });
+      
+      // Calculate net calories for each date
+      const dates = allDates.map(date => new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+      const netCalories = allDates.map(date => {
+        const consumed = nutritionMap[date] || 0;
+        const burned = workoutMap[date] || 0;
+        return consumed - burned;
+      });
+
+      if (window.netCaloriesChart) {
+        window.netCaloriesChart.destroy();
+      }
+
+      const ctx = document.getElementById('net-calories-chart').getContext('2d');
+      window.netCaloriesChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: dates,
+          datasets: [{
+            label: 'Net Calories',
+            data: netCalories,
+            backgroundColor: netCalories.map(value => value >= 0 ? '#059669' : '#DC2626'),
+            borderColor: netCalories.map(value => value >= 0 ? '#047857' : '#B91C1C'),
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  const value = context.parsed.y;
+                  const consumed = nutritionMap[allDates[context.dataIndex]] || 0;
+                  const burned = workoutMap[allDates[context.dataIndex]] || 0;
+                  return [
+                    `Net: ${value.toLocaleString()} cal`,
+                    `Consumed: ${consumed.toLocaleString()} cal`,
+                    `Burned: ${burned.toLocaleString()} cal`
+                  ];
+                }
+              }
+            }
+          },
+          scales: {
+            y: {
+              title: {
+                display: true,
+                text: 'Net Calories (Consumed - Burned)'
+              },
+              ticks: {
+                callback: function(value) {
+                  return value.toLocaleString();
+                }
+              },
+              grid: {
+                color: function(context) {
+                  return context.tick.value === 0 ? '#6B7280' : '#E5E7EB';
+                }
+              }
+            }
+          }
+        }
+      });
+      } catch (error) {
+        console.error('Error creating net calories chart:', error);
+      }
+    }
+
+    async function createMacrosChart(rawData) {
+      try {
+        console.log('Creating macros chart...');
+        const workouts = rawData.workouts || [];
+        
+        // Get nutrition data from the nutrition logs API (not static data)
+        let nutrition = [];
+        try {
+          const nutritionResponse = await fetch('/api/nutrition/logs?days=30');
+          if (nutritionResponse.ok) {
+            const nutritionData = await nutritionResponse.json();
+            nutrition = nutritionData.entries || [];
+          }
+        } catch (error) {
+          console.log('Could not fetch from nutrition logs API, using static data:', error);
+          nutrition = rawData.nutrition || [];
+        }
+        
+        console.log('Nutrition entries found:', nutrition.length);
+        
+        if (nutrition.length === 0) {
+          console.log('No nutrition data available for macros chart');
+          return;
+        }
+        
+        // Load user profile for goal calculations
+        const userProfile = JSON.parse(localStorage.getItem('userProfile') || 
+          '{"weight_lbs": 150, "age": 30, "gender": "other", "activity_level": "active"}');
+        
+        // Calculate percentage of goal for each entry
+        const dates = [];
+        const proteinPcts = [];
+        const carbsPcts = [];
+        const fatPcts = [];
+        const actualData = []; // Store for tooltips
+        
+        nutrition.forEach(n => {
+          const date = new Date(n.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          dates.push(date);
+          
+          // Calculate goals for this date
+          const goals = calculateNutritionGoals(userProfile, workouts, n.date);
+          
+          // Calculate percentages
+          const proteinPct = goals.protein > 0 ? ((n.protein_g || 0) / goals.protein) * 100 : 0;
+          const carbsPct = goals.carbs > 0 ? ((n.carbs_g || 0) / goals.carbs) * 100 : 0;
+          const fatPct = goals.fat > 0 ? ((n.fat_g || 0) / goals.fat) * 100 : 0;
+          
+          proteinPcts.push(proteinPct);
+          carbsPcts.push(carbsPct);
+          fatPcts.push(fatPct);
+          
+          // Store actual values for tooltips
+          actualData.push({
+            protein: n.protein_g || 0,
+            carbs: n.carbs_g || 0,
+            fat: n.fat_g || 0,
+            proteinGoal: goals.protein,
+            carbsGoal: goals.carbs,
+            fatGoal: goals.fat
+          });
+        });
+
+        if (window.macrosChart) {
+          window.macrosChart.destroy();
+        }
+
+        const ctx = document.getElementById('macros-chart').getContext('2d');
+        window.macrosChart = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: dates,
+            datasets: [
+              {
+                label: 'Protein',
+                data: proteinPcts,
+                borderColor: '#3B82F6',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                borderWidth: 2,
+                fill: false,
+                tension: 0.3
+              },
+              {
+                label: 'Carbohydrates',
+                data: carbsPcts,
+                borderColor: '#10B981',
+                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                borderWidth: 2,
+                fill: false,
+                tension: 0.3
+              },
+              {
+                label: 'Fat',
+                data: fatPcts,
+                borderColor: '#F59E0B',
+                backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                borderWidth: 2,
+                fill: false,
+                tension: 0.3
+              },
+              {
+                label: 'Goal',
+                data: Array(dates.length).fill(100),
+                borderColor: '#6B7280',
+                borderWidth: 2,
+                borderDash: [5, 5],
+                fill: false,
+                pointRadius: 0,
+                pointHoverRadius: 0
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { 
+                display: true,
+                position: 'top'
+              },
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    if (context.dataset.label === 'Goal') {
+                      return 'Goal: 100%';
+                    }
+                    const dataIndex = context.dataIndex;
+                    const actual = actualData[dataIndex];
+                    const pct = Math.round(context.parsed.y);
+                    
+                    let actualValue, goalValue;
+                    if (context.dataset.label === 'Protein') {
+                      actualValue = actual.protein;
+                      goalValue = actual.proteinGoal;
+                    } else if (context.dataset.label === 'Carbohydrates') {
+                      actualValue = actual.carbs;
+                      goalValue = actual.carbsGoal;
+                    } else if (context.dataset.label === 'Fat') {
+                      actualValue = actual.fat;
+                      goalValue = actual.fatGoal;
+                    }
+                    
+                    return `${context.dataset.label}: ${pct}% (${actualValue}g / ${goalValue}g goal)`;
+                  }
+                }
+              }
+            },
+            scales: {
+              y: {
+                title: {
+                  display: true,
+                  text: '% of Goal'
+                },
+                ticks: {
+                  callback: function(value) {
+                    return value + '%';
+                  }
+                },
+                min: 0
+              }
+            }
+          }
+        });
+      } catch (error) {
+        console.error('Error creating macros chart:', error);
+      }
+    }
+
+    // Calculate personalized nutrition goals based on body weight and training load
+    function calculateNutritionGoals(userProfile, workouts, targetDate) {
+      // Use weight in lbs directly (imperial system)
+      const weightLbs = userProfile.weight_lbs;
+      
+      // Calculate 7-day rolling training load
+      const sevenDaysAgo = new Date(targetDate);
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      
+      const recentWorkouts = workouts.filter(w => {
+        const wDate = new Date(w.date);
+        return wDate >= sevenDaysAgo && wDate <= new Date(targetDate);
+      });
+      
+      const avgDailyCaloriesBurned = recentWorkouts.reduce((sum, w) => 
+        sum + (w.calories_burned || 0), 0) / 7;
+      
+      // Get today's workout intensity
+      const todayWorkout = workouts.find(w => w.date === targetDate);
+      const todayCaloriesBurned = todayWorkout?.calories_burned || 0;
+      
+      // Baseline multipliers (imperial - g/lb for endurance athletes)
+      let proteinMultiplier = 0.82; // g/lb for endurance athletes
+      let carbsMultiplier = 2.72;   // g/lb for moderate training
+      let fatMultiplier = 0.41;     // g/lb
+      
+      // Adjust carbs based on 7-day rolling training load
+      if (avgDailyCaloriesBurned > 600) {
+        carbsMultiplier = 3.18; // High volume training
+      } else if (avgDailyCaloriesBurned < 300) {
+        carbsMultiplier = 2.27; // Lower volume
+      }
+      
+      // Extra boost for high-intensity days (today's workout > avg by 50%)
+      const isHighVolumeDay = todayCaloriesBurned > avgDailyCaloriesBurned * 1.5;
+      if (isHighVolumeDay) {
+        carbsMultiplier += 0.45; // ~1.0 g/kg converted to g/lb
+        proteinMultiplier += 0.09; // ~0.2 g/kg converted to g/lb
+      }
+      
+      return {
+        protein: Math.round(weightLbs * proteinMultiplier),
+        carbs: Math.round(weightLbs * carbsMultiplier),
+        fat: Math.round(weightLbs * fatMultiplier),
+        calories: Math.round((weightLbs * proteinMultiplier * 4) + 
+                             (weightLbs * carbsMultiplier * 4) + 
+                             (weightLbs * fatMultiplier * 9)),
+        trainingLoad: Math.round(avgDailyCaloriesBurned),
+        isHighVolumeDay: isHighVolumeDay
+      };
+    }
+
+    function updateDailyTargets(rawData) {
+      try {
+        const profile = JSON.parse(localStorage.getItem('userProfile') || 'null');
+        if (!profile || !profile.weight_lbs) {
+          console.log('No profile found, hiding targets card');
+          document.getElementById('daily-targets-card').style.display = 'none';
+          return;
+        }
+
+        const workouts = rawData.workouts || [];
+        const today = new Date().toISOString().split('T')[0];
+        
+        // Calculate today's goals using the existing function
+        const goals = calculateNutritionGoals(profile, workouts, today);
+        
+        // Update the display
+        document.getElementById('target-protein').textContent = `${goals.protein}g`;
+        document.getElementById('target-carbs').textContent = `${goals.carbs}g`;
+        document.getElementById('target-fat').textContent = `${goals.fat}g`;
+        document.getElementById('target-calories').textContent = goals.calories.toLocaleString();
+        
+        // Show high-volume indicator if applicable
+        const indicator = document.getElementById('high-volume-indicator');
+        if (goals.isHighVolumeDay) {
+          indicator.style.display = 'inline';
+        } else {
+          indicator.style.display = 'none';
+        }
+        
+        document.getElementById('daily-targets-card').style.display = 'block';
+        console.log('Daily targets updated:', goals);
+      } catch (error) {
+        console.error('Error updating daily targets:', error);
+        document.getElementById('daily-targets-card').style.display = 'none';
+      }
+    }
+
+    async function renderDashboard(analysis, rawData) {
+      try {
+        console.log('Rendering dashboard with data:', rawData);
+        
+        // Update daily targets
+        updateDailyTargets(rawData);
+        
+        // Create the four new charts
+        createPaceTrendsChart(rawData);
+        createCaloriesBurnedChart(rawData);
+        createCaloriesConsumedChart(rawData);
+        createNetCaloriesChart(rawData);
+        await createMacrosChart(rawData);
+        
+        console.log('All charts created successfully');
+      } catch (error) {
+        console.error('Error rendering dashboard:', error);
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('error').style.display = 'block';
+        document.getElementById('error-message').innerHTML = `
+          <div style="text-align: center; padding: 2rem;">
+            <h3 style="color: #374151; margin-bottom: 1rem;">⚠️ Chart Error</h3>
+            <p style="color: #6B7280; margin-bottom: 1rem;">
+              Error creating charts: ${error.message}
+            </p>
+            <button onclick="location.reload()" class="btn btn-primary">🔄 Refresh Page</button>
+          </div>
+        `;
+      }
+
+      // Weekly stats calculation
+      await calculateWeeklyStats(rawData);
+    }
+
+    async function calculateWeeklyStats(rawData) {
+      try {
+        // Get last 7 days of data
+        const weekAgo = new Date();
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        
+        const lastWeekWorkouts = rawData.workouts.filter(w => {
+          const date = new Date(w.date);
+          return date >= weekAgo;
+        });
+
+        // Basic stats
+        document.getElementById('weekly-workouts').textContent = lastWeekWorkouts.length;
+        
+        const totalDistance = lastWeekWorkouts
+          .filter(w => w.distance_miles)
+          .reduce((sum, w) => sum + w.distance_miles, 0);
+        document.getElementById('weekly-distance').textContent = totalDistance.toFixed(1) + 'mi';
+
+        // Average sleep (from recovery data)
+        const lastWeekSleep = rawData.recovery
+          ?.slice(-7)
+          ?.filter(r => r.sleep_hours)
+          ?.reduce((sum, r) => sum + r.sleep_hours, 0) / 7 || 0;
+        document.getElementById('avg-sleep').textContent = lastWeekSleep.toFixed(1) + 'h';
+
+        // Net calories calculation
+        let weeklyNetCalories = 0;
+        let weeklyCaloriesConsumed = 0;
+        let weeklyCaloriesBurned = 0;
+        
+        // Get nutrition data from API
+        try {
+          const nutritionResponse = await fetch('/api/nutrition/logs?days=7');
+          if (nutritionResponse.ok) {
+            const nutritionData = await nutritionResponse.json();
+            const lastWeekNutrition = nutritionData.entries?.filter(n => {
+              const date = new Date(n.date);
+              return date >= weekAgo;
+            }) || [];
+            
+            weeklyCaloriesConsumed = lastWeekNutrition.reduce((sum, n) => sum + (n.calories || 0), 0);
+          }
+        } catch (error) {
+          console.log('Could not fetch nutrition data for weekly stats:', error);
+        }
+        
+        weeklyCaloriesBurned = lastWeekWorkouts.reduce((sum, w) => sum + (w.calories_burned || 0), 0);
+        weeklyNetCalories = weeklyCaloriesConsumed - weeklyCaloriesBurned;
+        
+        document.getElementById('weekly-net-calories').textContent = 
+          (weeklyNetCalories > 0 ? '+' : '') + Math.round(weeklyNetCalories);
+
+        // Average running pace
+        const runningWorkouts = lastWeekWorkouts.filter(w => 
+          w.activity_type === 'running' && w.avg_pace_min_per_mile
+        );
+        
+        if (runningWorkouts.length > 0) {
+          const avgPace = runningWorkouts.reduce((sum, w) => sum + w.avg_pace_min_per_mile, 0) / runningWorkouts.length;
+          document.getElementById('avg-pace').textContent = formatPace(avgPace) + '/mi';
+        } else {
+          document.getElementById('avg-pace').textContent = 'N/A';
+        }
+
+        // Nutrition score calculation
+        await calculateNutritionScore(rawData, weekAgo);
+
+        // Generate AI summary
+        await generateWeeklyAISummary({
+          workouts: lastWeekWorkouts.length,
+          distance: totalDistance,
+          sleep: lastWeekSleep,
+          netCalories: weeklyNetCalories,
+          avgPace: runningWorkouts.length > 0 ? runningWorkouts.reduce((sum, w) => sum + w.avg_pace_min_per_mile, 0) / runningWorkouts.length : null,
+          caloriesConsumed: weeklyCaloriesConsumed,
+          caloriesBurned: weeklyCaloriesBurned
+        });
+
+      } catch (error) {
+        console.error('Error calculating weekly stats:', error);
+      }
+    }
+
+    async function calculateNutritionScore(rawData, weekAgo) {
+      try {
+        // Get nutrition data from API
+        const nutritionResponse = await fetch('/api/nutrition/logs?days=7');
+        if (!nutritionResponse.ok) {
+          document.getElementById('nutrition-score').textContent = 'N/A';
+          return;
+        }
+
+        const nutritionData = await nutritionResponse.json();
+        const lastWeekNutrition = nutritionData.entries?.filter(n => {
+          const date = new Date(n.date);
+          return date >= weekAgo;
+        }) || [];
+
+        if (lastWeekNutrition.length === 0) {
+          document.getElementById('nutrition-score').textContent = 'N/A';
+          return;
+        }
+
+        // Load user profile for goal calculations
+        const userProfile = JSON.parse(localStorage.getItem('userProfile') || 
+          '{"weight_lbs": 150, "age": 30, "gender": "other", "activity_level": "active"}');
+
+        // Calculate daily nutrition scores
+        const dailyScores = [];
+        
+        for (const nutrition of lastWeekNutrition) {
+          const goals = calculateNutritionGoals(userProfile, rawData.workouts, nutrition.date);
+          
+          const proteinPct = goals.protein > 0 ? Math.min(100, (nutrition.protein_g || 0) / goals.protein * 100) : 0;
+          const carbsPct = goals.carbs > 0 ? Math.min(100, (nutrition.carbs_g || 0) / goals.carbs * 100) : 0;
+          const fatPct = goals.fat > 0 ? Math.min(100, (nutrition.fat_g || 0) / goals.fat * 100) : 0;
+          
+          const dailyScore = (proteinPct + carbsPct + fatPct) / 3;
+          dailyScores.push(dailyScore);
+        }
+
+        // Calculate weekly average
+        const weeklyScore = dailyScores.length > 0 
+          ? dailyScores.reduce((sum, score) => sum + score, 0) / dailyScores.length 
+          : 0;
+
+        document.getElementById('nutrition-score').textContent = Math.round(weeklyScore) + '%';
+
+      } catch (error) {
+        console.error('Error calculating nutrition score:', error);
+        document.getElementById('nutrition-score').textContent = 'N/A';
+      }
+    }
+
+    async function generateWeeklyAISummary(stats) {
+      try {
+        const summaryText = document.getElementById('ai-summary-text');
+        
+        // Create a simple AI-like summary based on the stats
+        let summary = '';
+        
+        if (stats.workouts > 0) {
+          summary += `This week you completed ${stats.workouts} workouts covering ${stats.distance.toFixed(1)} miles. `;
+          
+          if (stats.avgPace) {
+            summary += `Your average running pace was ${formatPace(stats.avgPace)} per mile. `;
+          }
+        } else {
+          summary += 'No workouts recorded this week. ';
+        }
+        
+        if (stats.netCalories !== 0) {
+          const calText = stats.netCalories > 0 ? 'surplus' : 'deficit';
+          summary += `Your energy balance shows a ${Math.abs(stats.netCalories)} calorie ${calText} (${stats.caloriesConsumed} consumed, ${stats.caloriesBurned} burned). `;
+        }
+        
+        if (stats.sleep > 0) {
+          summary += `You averaged ${stats.sleep.toFixed(1)} hours of sleep per night. `;
+        }
+        
+        // Add nutrition insights
+        const nutritionScore = document.getElementById('nutrition-score').textContent;
+        if (nutritionScore !== 'N/A' && nutritionScore !== '-%') {
+          const score = parseInt(nutritionScore);
+          if (score >= 90) {
+            summary += 'Excellent nutrition consistency with macro goals! ';
+          } else if (score >= 75) {
+            summary += 'Good nutrition tracking with room for improvement. ';
+          } else if (score >= 50) {
+            summary += 'Nutrition goals need more attention this week. ';
+          } else {
+            summary += 'Consider focusing more on hitting your macro targets. ';
+          }
+        }
+        
+        // Add recommendations
+        if (stats.workouts === 0) {
+          summary += 'Consider adding some workouts to maintain your fitness routine.';
+        } else if (stats.netCalories < -500) {
+          summary += 'You may want to increase calorie intake to support your training.';
+        } else if (stats.netCalories > 1000) {
+          summary += 'Consider adjusting your nutrition to better match your activity level.';
+        } else {
+          summary += 'Great balance between training and nutrition this week!';
+        }
+        
+        summaryText.textContent = summary;
+        
+      } catch (error) {
+        console.error('Error generating AI summary:', error);
+        document.getElementById('ai-summary-text').textContent = 'Unable to generate summary at this time.';
+      }
+    }
+
+    // Smart polling for real-time updates
+    let lastNutritionHash = null;
+    let pollingInterval = null;
+    let isPolling = false;
+
+    function calculateDataHash(data) {
+      // Create a simple hash of nutrition data for change detection
+      const nutritionData = data.nutrition || [];
+      const nutritionString = JSON.stringify(nutritionData.map(n => ({
+        date: n.date,
+        calories: n.calories,
+        protein_g: n.protein_g,
+        carbs_g: n.carbs_g,
+        fat_g: n.fat_g
+      })));
+      return btoa(nutritionString).slice(0, 16); // Simple hash
+    }
+
+    async function checkForDataUpdates() {
+      if (isPolling) return; // Prevent overlapping requests
+      
+      try {
+        isPolling = true;
+        console.log('🔍 Checking for data updates...');
+        
+        // Show subtle indicator
+        const indicator = document.getElementById('polling-indicator');
+        if (indicator) indicator.style.display = 'inline';
+        
+        // Check nutrition logs API
+        const response = await fetch('/api/nutrition/logs?days=30');
+        if (response.ok) {
+          const nutritionData = await response.json();
+          
+          // Create a mock data object for hash comparison
+          const mockData = {
+            nutrition: nutritionData.entries || []
+          };
+          
+          const currentHash = calculateDataHash(mockData);
+          
+          if (lastNutritionHash && currentHash !== lastNutritionHash) {
+            console.log('📊 Nutrition data changed, updating dashboard...');
+            // Data has changed, reload the dashboard
+            await loadHealthData();
+          }
+          
+          lastNutritionHash = currentHash;
+        }
+        
+        // Hide indicator
+        if (indicator) indicator.style.display = 'none';
+        
+      } catch (error) {
+        console.log('⚠️ Polling check failed:', error);
+        const indicator = document.getElementById('polling-indicator');
+        if (indicator) indicator.style.display = 'none';
+      } finally {
+        isPolling = false;
+      }
+    }
+
+    function startPolling() {
+      if (pollingInterval) return; // Already polling
+      
+      console.log('🔄 Starting smart polling (30s intervals)');
+      pollingInterval = setInterval(checkForDataUpdates, 30000); // 30 seconds
+      
+      // Also check immediately after a short delay
+      setTimeout(checkForDataUpdates, 5000);
+    }
+
+    function stopPolling() {
+      if (pollingInterval) {
+        console.log('⏹️ Stopping polling');
+        clearInterval(pollingInterval);
+        pollingInterval = null;
+      }
+    }
+
+    // Load data on page load
+    window.addEventListener('DOMContentLoaded', function() {
+      console.log('🚀 DOM loaded, starting initialization...');
+      console.log('📊 Chart.js available:', typeof Chart !== 'undefined');
+      console.log('🔧 Chart version:', Chart?.version || 'Not loaded');
+      loadHealthData();
+      
+      // Start polling after initial load
+      setTimeout(startPolling, 2000);
+    });
+    
+    // Force cache refresh for imperial units
+    console.log('🏃‍♂️ Dashboard loaded with Imperial Units (miles, min/mi, cal, fl oz)');
+  </script>
+</body>
+</html>
+

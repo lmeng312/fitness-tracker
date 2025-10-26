@@ -1,6 +1,15 @@
 services:
+  # PostgreSQL Database
+  - type: pserv
+    name: fitness-tracker-db
+    env: docker
+    plan: free
+    region: oregon
+    ipAllowList: []
+  
+  # FastAPI Backend
   - type: web
-    name: ai-trip-planner-backend
+    name: fitness-tracker-backend
     env: python
     plan: free
     rootDir: backend
@@ -15,11 +24,23 @@ services:
         pip install -U pip
         pip install -r requirements.txt
       fi
-    startCommand: .venv/bin/uvicorn main:app --host 0.0.0.0 --port $PORT
+    startCommand: .venv/bin/uvicorn health_main:app --host 0.0.0.0 --port $PORT
     autoDeploy: true
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.9
+      - key: DATABASE_URL
+        fromDatabase:
+          name: fitness-tracker-db
+          property: connectionString
+      - key: BASE_URL
+        sync: false
+      - key: STRAVA_CLIENT_ID
+        sync: false
+      - key: STRAVA_CLIENT_SECRET
+        sync: false
+      - key: STRAVA_WEBHOOK_VERIFY_TOKEN
+        sync: false
       - key: OPENAI_API_KEY
         sync: false
       - key: OPENROUTER_API_KEY

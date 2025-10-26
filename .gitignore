@@ -92,3 +92,12 @@ test scripts/*.json
 backend/archive/ 
 
 backend/__pycache__
+
+# User data files (should not be committed)
+backend/my_strava_data.json
+backend/my_nutrition_logs.json
+backend/my_health_data.csv
+backend/*.db
+backend/*.sqlite
+backend/*.sqlite3
+fitness_tracker.db

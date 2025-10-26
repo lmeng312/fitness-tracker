@@ -1,0 +1,1153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Upload Data - AI Health Tracker</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+      background: #F9FAFB;
+      color: #111827;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    header {
+      background: white;
+      border-bottom: 2px solid #E5E7EB;
+      padding: 1rem 2rem;
+      margin: -2rem -2rem 2rem -2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      color: #2563EB;
+      font-weight: 700;
+    }
+
+    .nav-link {
+      color: #6B7280;
+      text-decoration: none;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      transition: all 0.2s;
+    }
+
+    .nav-link:hover {
+      background: #F3F4F6;
+      color: #111827;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 1rem;
+      border-bottom: 2px solid #E5E7EB;
+      margin-bottom: 2rem;
+    }
+
+    .tab {
+      padding: 1rem 1.5rem;
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      transition: all 0.2s;
+      font-weight: 500;
+      color: #6B7280;
+    }
+
+    .tab.active {
+      color: #2563EB;
+      border-bottom-color: #2563EB;
+    }
+
+    .tab-content {
+      display: none;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 2rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      margin-bottom: 2rem;
+    }
+
+    .card-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+    }
+
+    .upload-zone {
+      border: 3px dashed #D1D5DB;
+      border-radius: 12px;
+      padding: 3rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .upload-zone:hover {
+      border-color: #2563EB;
+      background: #F0F9FF;
+    }
+
+    .upload-zone.dragging {
+      border-color: #2563EB;
+      background: #DBEAFE;
+    }
+
+    .upload-icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+    }
+
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+
+    .form-label {
+      display: block;
+      font-weight: 500;
+      margin-bottom: 0.5rem;
+      color: #374151;
+    }
+
+    .form-input, .form-select, .form-textarea {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid #D1D5DB;
+      border-radius: 8px;
+      font-size: 1rem;
+      transition: all 0.2s;
+    }
+
+    .form-input:focus, .form-select:focus, .form-textarea:focus {
+      outline: none;
+      border-color: #2563EB;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+
+    .form-textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+    }
+
+    .btn {
+      padding: 0.75rem 1.5rem;
+      border-radius: 8px;
+      border: none;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 1rem;
+    }
+
+    .btn-primary {
+      background: #2563EB;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #1D4ED8;
+    }
+
+    .btn-secondary {
+      background: #F3F4F6;
+      color: #374151;
+    }
+
+    .btn-secondary:hover {
+      background: #E5E7EB;
+    }
+
+    .success-message {
+      background: #D1FAE5;
+      border: 2px solid #10B981;
+      color: #065F46;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      display: none;
+    }
+
+    .error-message {
+      background: #FEE2E2;
+      border: 2px solid #EF4444;
+      color: #991B1B;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      display: none;
+    }
+
+    .estimate-result {
+      background: #F0F9FF;
+      border: 2px solid #3B82F6;
+      padding: 1.5rem;
+      border-radius: 8px;
+      margin-top: 1rem;
+      display: none;
+    }
+
+    .estimate-result h4 {
+      margin-bottom: 1rem;
+      color: #1E40AF;
+    }
+
+    .macro-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+    }
+
+    .macro-item {
+      text-align: center;
+      padding: 1rem;
+      background: white;
+      border-radius: 8px;
+    }
+
+    .macro-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #2563EB;
+    }
+
+    .macro-label {
+      font-size: 0.875rem;
+      color: #6B7280;
+      margin-top: 0.25rem;
+    }
+
+    .helper-text {
+      font-size: 0.875rem;
+      color: #6B7280;
+      margin-top: 0.25rem;
+    }
+
+    .file-info {
+      background: #F3F4F6;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-top: 1rem;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🏃 Fitness & Nutrition Data</h1>
+      <div>
+        <a href="/dashboard.html" class="nav-link">← Back to Dashboard</a>
+      </div>
+    </header>
+
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('activity')">🏃 Fitness Data</div>
+      <div class="tab" onclick="switchTab('nutrition')">🍽️ Nutrition Data</div>
+    </div>
+
+    <!-- Activity Data Tab (Combined Upload & Manual Entry) -->
+    <div id="activity-tab" class="tab-content active">
+      <!-- Method Selection -->
+      <div class="card" style="margin-bottom: 1.5rem;">
+        <div style="display: flex; gap: 1rem; justify-content: center;">
+          <button class="btn btn-primary" id="show-upload-btn" onclick="showActivityMethod('upload')" style="flex: 1; max-width: 250px;">
+            📁 Upload File
+          </button>
+          <button class="btn btn-secondary" id="show-manual-btn" onclick="showActivityMethod('manual')" style="flex: 1; max-width: 250px;">
+            ✍️ Manual Entry
+          </button>
+        </div>
+      </div>
+
+      <!-- File Upload Section -->
+      <div id="upload-section" style="display: block;">
+        <div class="card">
+          <h2 class="card-title">Upload CSV or Excel File</h2>
+        
+        <div id="file-success" class="success-message"></div>
+        <div id="file-error" class="error-message"></div>
+
+        <div class="upload-zone" id="upload-zone">
+          <div class="upload-icon">📁</div>
+          <h3>Drag & Drop your file here</h3>
+          <p style="color: #6B7280; margin: 1rem 0;">or click to browse</p>
+          <p style="color: #9CA3AF; font-size: 0.875rem;">Supports CSV, XLSX, XLS files</p>
+          <input type="file" id="file-input" accept=".csv,.xlsx,.xls" style="display: none;">
+        </div>
+
+        <div id="file-info" class="file-info">
+          <strong>Selected:</strong> <span id="file-name"></span>
+          <br>
+          <strong>Size:</strong> <span id="file-size"></span>
+        </div>
+
+        <div style="margin-top: 2rem;">
+          <h4 style="margin-bottom: 1rem;">Required CSV Format:</h4>
+          <pre style="background: #F3F4F6; padding: 1rem; border-radius: 8px; overflow-x: auto; font-size: 0.875rem;">date,activity_type,duration_min,distance_miles,avg_pace_min_per_mile,avg_hr_bpm,calories_burned
+2024-10-20,running,30,3.1,9.68,155,350
+2024-10-21,cycling,60,12.4,null,145,500</pre>
+          
+          <p style="margin-top: 1rem; color: #6B7280;">
+            <strong>Tip:</strong> Export from Strava and use <code>convert_strava.py</code> to convert to this format.
+          </p>
+        </div>
+      </div>
+    </div>
+
+      <!-- Manual Entry Section -->
+      <div id="manual-section" style="display: none;">
+        <div class="card">
+          <h2 class="card-title">Log a Workout</h2>
+        
+        <div id="activity-success" class="success-message"></div>
+        <div id="activity-error" class="error-message"></div>
+
+        <form id="activity-form">
+          <div class="form-group">
+            <label class="form-label">Date</label>
+            <input type="date" class="form-input" id="activity-date" required>
+          </div>
+
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="form-label">Activity Type</label>
+              <select class="form-select" id="activity-type" required>
+                <option value="running">🏃 Running</option>
+                <option value="cycling">🚴 Cycling</option>
+                <option value="swimming">🏊 Swimming</option>
+                <option value="walking">🚶 Walking</option>
+                <option value="strength">💪 Strength</option>
+                <option value="yoga">🧘 Yoga</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Duration (minutes)</label>
+              <input type="number" class="form-input" id="activity-duration" min="1" required>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Distance (miles)</label>
+              <input type="number" step="0.01" class="form-input" id="activity-distance">
+              <span class="helper-text">Optional - for running/cycling</span>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Avg Heart Rate (bpm)</label>
+              <input type="number" class="form-input" id="activity-hr" min="30" max="220">
+              <span class="helper-text">Optional</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Notes</label>
+            <textarea class="form-textarea" id="activity-notes" placeholder="How did it feel? Any observations?"></textarea>
+          </div>
+
+          <button type="submit" class="btn btn-primary">Save Activity</button>
+        </form>
+      </div>
+      </div>
+    </div>
+
+    <!-- Nutrition Data Tab -->
+    <div id="nutrition-tab" class="tab-content">
+      <!-- Method Selection -->
+      <div class="card" style="margin-bottom: 1.5rem;">
+        <div style="display: flex; gap: 1rem; justify-content: center;">
+          <button class="btn btn-secondary" id="show-nutrition-upload-btn" onclick="showNutritionMethod('upload')" style="flex: 1; max-width: 250px;">
+            📁 Upload CSV
+          </button>
+          <button class="btn btn-secondary" id="show-nutrition-manual-btn" onclick="showNutritionMethod('manual')" style="flex: 1; max-width: 250px;">
+            ✍️ Manual Entry
+          </button>
+          <button class="btn btn-primary" id="show-nutrition-ai-btn" onclick="showNutritionMethod('ai')" style="flex: 1; max-width: 250px;">
+            🤖 AI Estimator
+          </button>
+        </div>
+      </div>
+
+      <!-- AI Estimator Section (Default) -->
+      <div id="nutrition-ai-section" style="display: block;">
+        <div class="card">
+          <h2 class="card-title">🤖 AI Nutrition Estimator</h2>
+          <p style="color: #6B7280; margin-bottom: 1.5rem;">
+            Describe your meals naturally and let AI estimate the calories and macros!
+          </p>
+
+        <div id="nutrition-success" class="success-message"></div>
+        <div id="nutrition-error" class="error-message"></div>
+
+        <form id="nutrition-estimate-form">
+          <div class="form-group">
+            <label class="form-label">Date</label>
+            <input type="date" class="form-input" id="nutrition-date" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Describe Your Meals</label>
+            <textarea 
+              class="form-textarea" 
+              id="meal-description" 
+              placeholder="Example: Oatmeal with banana and almond butter for breakfast, grilled chicken caesar salad for lunch, salmon with quinoa and roasted vegetables for dinner, Greek yogurt with berries as snack"
+              required
+              style="min-height: 120px;"
+            ></textarea>
+            <span class="helper-text">Be as detailed as you like - include portion sizes if known!</span>
+          </div>
+
+          <button type="submit" class="btn btn-primary">🤖 Estimate with AI</button>
+          <button type="button" class="btn btn-secondary" onclick="showManualEntry()" style="margin-left: 1rem;">
+            ✏️ Enter Manually Instead
+          </button>
+          <button type="button" class="btn btn-secondary" onclick="refreshEstimate()" style="margin-left: 1rem;" title="Refresh AI estimation">
+            🔄
+          </button>
+        </form>
+
+        <div id="estimate-result" class="estimate-result">
+          <h4>📊 AI Nutrition Estimate</h4>
+          <div class="macro-grid">
+            <div class="macro-item">
+              <div class="macro-value" id="est-calories">-</div>
+              <div class="macro-label">Calories</div>
+            </div>
+            <div class="macro-item">
+              <div class="macro-value" id="est-protein">-g</div>
+              <div class="macro-label">Protein</div>
+            </div>
+            <div class="macro-item">
+              <div class="macro-value" id="est-carbs">-g</div>
+              <div class="macro-label">Carbs</div>
+            </div>
+            <div class="macro-item">
+              <div class="macro-value" id="est-fat">-g</div>
+              <div class="macro-label">Fat</div>
+            </div>
+          </div>
+          <p style="margin-top: 1rem; color: #6B7280; font-size: 0.875rem;">
+            Confidence: <span id="est-confidence">-</span>%
+          </p>
+          <button onclick="saveEstimate()" class="btn btn-primary" style="margin-top: 1rem;">
+            💾 Save This Entry
+          </button>
+          <button onclick="clearEstimate()" class="btn btn-secondary" style="margin-top: 1rem; margin-left: 1rem;">
+            🗑️ Clear Results
+          </button>
+        </div>
+      </div>
+
+      <!-- Manual Entry Section (hidden by default) -->
+      <div class="card" id="manual-nutrition" style="display: none;">
+        <h2 class="card-title">✏️ Manual Entry</h2>
+        
+        <form id="nutrition-manual-form">
+          <div class="form-group">
+            <label class="form-label">Date</label>
+            <input type="date" class="form-input" id="manual-date" required>
+          </div>
+
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="form-label">Calories</label>
+              <input type="number" class="form-input" id="manual-calories" min="500" max="5000" placeholder="2000" required>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Protein (g)</label>
+              <input type="number" class="form-input" id="manual-protein" min="0">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Carbs (g)</label>
+              <input type="number" class="form-input" id="manual-carbs" min="0">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Fat (g)</label>
+              <input type="number" class="form-input" id="manual-fat" min="0">
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary">Save Manually</button>
+          <button type="button" class="btn btn-secondary" onclick="hideManualEntry()" style="margin-left: 1rem;">
+            Cancel
+          </button>
+        </form>
+      </div>
+    </div>
+
+      <!-- CSV Upload Section -->
+      <div id="nutrition-upload-section" style="display: none;">
+        <div class="card">
+          <h2 class="card-title">📁 Upload Nutrition CSV</h2>
+          <p style="color: #6B7280; margin-bottom: 1.5rem;">
+            Upload a CSV file with your nutrition data.
+          </p>
+          
+          <div id="nutrition-file-success" class="success-message"></div>
+          <div id="nutrition-file-error" class="error-message"></div>
+
+          <div class="upload-zone" id="nutrition-upload-zone">
+            <div class="upload-icon">📁</div>
+            <h3>Drag & Drop your nutrition CSV here</h3>
+            <p style="color: #6B7280; margin: 1rem 0;">or click to browse</p>
+            <p style="color: #9CA3AF; font-size: 0.875rem;">Supports CSV files</p>
+            <input type="file" id="nutrition-file-input" accept=".csv" style="display: none;">
+          </div>
+
+          <div style="margin-top: 2rem;">
+            <h4 style="margin-bottom: 1rem;">Required CSV Format:</h4>
+            <div style="background: #F3F4F6; padding: 1rem; border-radius: 8px; font-family: monospace; font-size: 0.875rem;">
+              <div>date,meal_description,calories,protein_g,carbs_g,fat_g</div>
+              <div>2024-10-20,"Breakfast: oatmeal with banana",350,12,65,8</div>
+              <div>2024-10-20,"Lunch: grilled chicken salad",450,35,25,20</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Manual Entry Section -->
+      <div id="nutrition-manual-section" style="display: none;">
+        <div class="card">
+          <h2 class="card-title">✍️ Manual Nutrition Entry</h2>
+          <p style="color: #6B7280; margin-bottom: 1.5rem;">
+            Enter your nutrition data manually.
+          </p>
+          
+          <div id="nutrition-manual-success" class="success-message"></div>
+          <div id="nutrition-manual-error" class="error-message"></div>
+
+          <form id="nutrition-manual-form">
+            <div class="form-group">
+              <label class="form-label">Date</label>
+              <input type="date" class="form-input" id="nutrition-manual-date" required>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Meal Description</label>
+              <textarea class="form-textarea" id="nutrition-manual-description" placeholder="Describe your meals..." required></textarea>
+            </div>
+
+            <div class="form-grid">
+              <div class="form-group">
+                <label class="form-label">Calories</label>
+                <input type="number" class="form-input" id="nutrition-manual-calories" min="0" required>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Protein (g)</label>
+                <input type="number" step="0.1" class="form-input" id="nutrition-manual-protein" min="0" required>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Carbs (g)</label>
+                <input type="number" step="0.1" class="form-input" id="nutrition-manual-carbs" min="0" required>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Fat (g)</label>
+                <input type="number" step="0.1" class="form-input" id="nutrition-manual-fat" min="0" required>
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary">Save Nutrition Entry</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Nutrition History Section (Only in Nutrition Data tab) -->
+      <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+          <h2 class="card-title" style="margin: 0;">📊 Recent Nutrition Entries</h2>
+          <div>
+            <button onclick="loadNutritionHistory()" class="btn btn-primary">🔄 Refresh</button>
+            <button onclick="exportNutritionHistory()" class="btn btn-secondary" style="margin-left: 0.5rem;">📥 Export CSV</button>
+          </div>
+        </div>
+
+        <div id="history-table-container" style="overflow-x: auto;">
+          <p style="color: #6B7280; text-align: center; padding: 2rem;">Loading nutrition history...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = window.location.origin;
+
+    // Set today's date as default
+    document.getElementById('activity-date').valueAsDate = new Date();
+    document.getElementById('nutrition-date').valueAsDate = new Date();
+    document.getElementById('nutrition-manual-date').valueAsDate = new Date();
+    document.getElementById('manual-date').valueAsDate = new Date();
+
+    // Load nutrition history on page load
+    loadNutritionHistory();
+
+    // Tab switching
+    function switchTab(tab) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      
+      event.target.classList.add('active');
+      document.getElementById(tab + '-tab').classList.add('active');
+    }
+
+    function showActivityMethod(method) {
+      const uploadSection = document.getElementById('upload-section');
+      const manualSection = document.getElementById('manual-section');
+      const uploadBtn = document.getElementById('show-upload-btn');
+      const manualBtn = document.getElementById('show-manual-btn');
+      
+      if (method === 'upload') {
+        uploadSection.style.display = 'block';
+        manualSection.style.display = 'none';
+        uploadBtn.classList.add('btn-primary');
+        uploadBtn.classList.remove('btn-secondary');
+        manualBtn.classList.add('btn-secondary');
+        manualBtn.classList.remove('btn-primary');
+      } else {
+        uploadSection.style.display = 'none';
+        manualSection.style.display = 'block';
+        manualBtn.classList.add('btn-primary');
+        manualBtn.classList.remove('btn-secondary');
+        uploadBtn.classList.add('btn-secondary');
+        uploadBtn.classList.remove('btn-primary');
+      }
+    }
+
+    function showNutritionMethod(method) {
+      const aiSection = document.getElementById('nutrition-ai-section');
+      const uploadSection = document.getElementById('nutrition-upload-section');
+      const manualSection = document.getElementById('nutrition-manual-section');
+      const aiBtn = document.getElementById('show-nutrition-ai-btn');
+      const uploadBtn = document.getElementById('show-nutrition-upload-btn');
+      const manualBtn = document.getElementById('show-nutrition-manual-btn');
+      
+      // Hide all sections
+      aiSection.style.display = 'none';
+      uploadSection.style.display = 'none';
+      manualSection.style.display = 'none';
+      
+      // Reset all buttons
+      aiBtn.classList.remove('btn-primary');
+      uploadBtn.classList.remove('btn-primary');
+      manualBtn.classList.remove('btn-primary');
+      aiBtn.classList.add('btn-secondary');
+      uploadBtn.classList.add('btn-secondary');
+      manualBtn.classList.add('btn-secondary');
+      
+      // Show selected section and highlight button
+      if (method === 'ai') {
+        aiSection.style.display = 'block';
+        aiBtn.classList.add('btn-primary');
+        aiBtn.classList.remove('btn-secondary');
+      } else if (method === 'upload') {
+        uploadSection.style.display = 'block';
+        uploadBtn.classList.add('btn-primary');
+        uploadBtn.classList.remove('btn-secondary');
+      } else if (method === 'manual') {
+        manualSection.style.display = 'block';
+        manualBtn.classList.add('btn-primary');
+        manualBtn.classList.remove('btn-secondary');
+      }
+    }
+
+    // Nutrition CSV Upload
+    const nutritionUploadZone = document.getElementById('nutrition-upload-zone');
+    const nutritionFileInput = document.getElementById('nutrition-file-input');
+
+    nutritionUploadZone.addEventListener('click', () => nutritionFileInput.click());
+
+    nutritionFileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        uploadNutritionFile(file);
+      }
+    });
+
+    // Nutrition Manual Form
+    document.getElementById('nutrition-manual-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const formData = {
+        date: document.getElementById('nutrition-manual-date').value,
+        meal_description: document.getElementById('nutrition-manual-description').value,
+        calories: parseInt(document.getElementById('nutrition-manual-calories').value),
+        protein_g: parseFloat(document.getElementById('nutrition-manual-protein').value),
+        carbs_g: parseFloat(document.getElementById('nutrition-manual-carbs').value),
+        fat_g: parseFloat(document.getElementById('nutrition-manual-fat').value)
+      };
+
+      try {
+        const response = await fetch(`${API_BASE}/api/nutrition/log`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData)
+        });
+
+        if (response.ok) {
+          showSuccess('nutrition-manual-success', 'Nutrition entry saved successfully!');
+          document.getElementById('nutrition-manual-form').reset();
+          document.getElementById('nutrition-manual-date').valueAsDate = new Date();
+          loadNutritionHistory();
+        } else {
+          throw new Error('Failed to save nutrition entry');
+        }
+      } catch (error) {
+        showError('nutrition-manual-error', 'Error saving nutrition entry: ' + error.message);
+      }
+    });
+
+    // File Upload
+    const uploadZone = document.getElementById('upload-zone');
+    const fileInput = document.getElementById('file-input');
+
+    uploadZone.addEventListener('click', () => fileInput.click());
+
+    uploadZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      uploadZone.classList.add('dragging');
+    });
+
+    uploadZone.addEventListener('dragleave', () => {
+      uploadZone.classList.remove('dragging');
+    });
+
+    uploadZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      uploadZone.classList.remove('dragging');
+      handleFile(e.dataTransfer.files[0]);
+    });
+
+    fileInput.addEventListener('change', (e) => {
+      handleFile(e.target.files[0]);
+    });
+
+    async function handleFile(file) {
+      if (!file) return;
+
+      // Show file info
+      document.getElementById('file-name').textContent = file.name;
+      document.getElementById('file-size').textContent = (file.size / 1024).toFixed(1) + ' KB';
+      document.getElementById('file-info').style.display = 'block';
+
+      // Upload
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        const response = await fetch(`${API_BASE}/api/upload-data`, {
+          method: 'POST',
+          body: formData
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          showSuccess('file-success', `✓ Success! Processed ${result.message}`);
+          setTimeout(() => {
+            window.location.href = '/dashboard.html';
+          }, 2000);
+        } else {
+          showError('file-error', 'Upload failed: ' + (result.detail || 'Unknown error'));
+        }
+      } catch (error) {
+        showError('file-error', 'Upload failed: ' + error.message);
+      }
+    }
+
+    async function uploadNutritionFile(file) {
+      if (!file) return;
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        const response = await fetch(`${API_BASE}/api/upload-nutrition`, {
+          method: 'POST',
+          body: formData
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          showSuccess('nutrition-file-success', `✓ Success! Processed ${result.message}`);
+          setTimeout(() => {
+            loadNutritionHistory();
+          }, 1000);
+        } else {
+          showError('nutrition-file-error', 'Upload failed: ' + (result.detail || 'Unknown error'));
+        }
+      } catch (error) {
+        showError('nutrition-file-error', 'Upload failed: ' + error.message);
+      }
+    }
+
+    // Activity Form
+    document.getElementById('activity-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const data = {
+        date: document.getElementById('activity-date').value,
+        activity_type: document.getElementById('activity-type').value,
+        duration_min: parseInt(document.getElementById('activity-duration').value),
+        distance_miles: parseFloat(document.getElementById('activity-distance').value) || null,
+        avg_hr_bpm: parseInt(document.getElementById('activity-hr').value) || null,
+        notes: document.getElementById('activity-notes').value
+      };
+
+      // TODO: Save to database/file
+      console.log('Activity data:', data);
+      showSuccess('activity-success', '✓ Activity saved! (Note: Full database integration coming soon)');
+      e.target.reset();
+      document.getElementById('activity-date').valueAsDate = new Date();
+    });
+
+    // Nutrition AI Estimate
+    document.getElementById('nutrition-estimate-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const mealDescription = document.getElementById('meal-description').value;
+      const submitBtn = e.target.querySelector('button[type="submit"]');
+      
+      // Show loading state
+      const originalText = submitBtn.textContent;
+      submitBtn.textContent = '🤖 Estimating...';
+      submitBtn.disabled = true;
+      
+      // Clear previous errors
+      document.getElementById('nutrition-error').style.display = 'none';
+
+      try {
+        const response = await fetch(`${API_BASE}/api/nutrition/estimate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ meal_description: mealDescription })
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          document.getElementById('est-calories').textContent = result.calories;
+          document.getElementById('est-protein').textContent = result.protein_g + 'g';
+          document.getElementById('est-carbs').textContent = result.carbs_g + 'g';
+          document.getElementById('est-fat').textContent = result.fat_g + 'g';
+          document.getElementById('est-confidence').textContent = (result.confidence_score * 100).toFixed(0);
+          document.getElementById('estimate-result').style.display = 'block';
+          
+          // Store for saving later
+          window.currentEstimate = {
+            date: document.getElementById('nutrition-date').value,
+            ...result,
+            meal_description: mealDescription
+          };
+        } else {
+          showError('nutrition-error', 'Estimation failed: ' + (result.detail || 'Unknown error'));
+        }
+      } catch (error) {
+        showError('nutrition-error', 'Estimation failed: ' + error.message);
+      } finally {
+        // Restore button state
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
+      }
+    });
+
+    async function saveEstimate() {
+      if (!window.currentEstimate) return;
+
+      try {
+        const response = await fetch(`${API_BASE}/api/nutrition/log`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            date: window.currentEstimate.date,
+            calories: window.currentEstimate.calories,
+            protein_g: window.currentEstimate.protein_g,
+            carbs_g: window.currentEstimate.carbs_g,
+            fat_g: window.currentEstimate.fat_g,
+            method: 'ai_estimate',
+            source_description: window.currentEstimate.meal_description
+          })
+        });
+
+        if (response.ok) {
+          showSuccess('nutrition-success', '✓ Nutrition entry saved!');
+          document.getElementById('nutrition-estimate-form').reset();
+          document.getElementById('estimate-result').style.display = 'none';
+          document.getElementById('nutrition-date').valueAsDate = new Date();
+          window.currentEstimate = null;
+          // Reload history to show the new entry
+          setTimeout(() => loadNutritionHistory(), 500);
+        } else {
+          const result = await response.json();
+          showError('nutrition-error', 'Save failed: ' + (result.detail || 'Unknown error'));
+        }
+      } catch (error) {
+        showError('nutrition-error', 'Save failed: ' + error.message);
+      }
+    }
+
+    // Manual Nutrition Entry
+    function showManualEntry() {
+      document.getElementById('manual-nutrition').style.display = 'block';
+      document.getElementById('manual-date').value = document.getElementById('nutrition-date').value;
+    }
+
+    function hideManualEntry() {
+      document.getElementById('manual-nutrition').style.display = 'none';
+    }
+
+    // Refresh estimate function
+    function refreshEstimate() {
+      const mealDescription = document.getElementById('meal-description').value;
+      if (!mealDescription.trim()) {
+        showError('nutrition-error', 'Please enter a meal description first');
+        return;
+      }
+      
+      // Trigger the form submission to re-run AI estimation
+      document.getElementById('nutrition-estimate-form').dispatchEvent(new Event('submit'));
+    }
+
+    // Clear estimate function
+    function clearEstimate() {
+      document.getElementById('estimate-result').style.display = 'none';
+      document.getElementById('nutrition-estimate-form').reset();
+      document.getElementById('nutrition-date').valueAsDate = new Date();
+      window.currentEstimate = null;
+      showSuccess('nutrition-success', 'Results cleared. Enter a new meal description to get AI estimates.');
+    }
+
+    // Nutrition History Functions
+    async function loadNutritionHistory() {
+      const container = document.getElementById('history-table-container');
+      container.innerHTML = '<p style="color: #6B7280; text-align: center; padding: 2rem;">Loading...</p>';
+      
+      try {
+        const response = await fetch(`${API_BASE}/api/nutrition/logs?days=30`);
+        const result = await response.json();
+        
+        if (response.ok && result.entries) {
+          displayNutritionHistoryTable(result.entries);
+        } else {
+          container.innerHTML = `
+            <div style="text-align: center; padding: 2rem;">
+              <p style="color: #6B7280; margin-bottom: 1rem;">
+                No nutrition entries found yet. Start logging your meals!
+              </p>
+              <p style="color: #9CA3AF; font-size: 0.875rem;">
+                Note: If you just saved an entry, try clicking the Refresh button.
+              </p>
+            </div>
+          `;
+        }
+      } catch (error) {
+        container.innerHTML = `
+          <div style="text-align: center; padding: 2rem;">
+            <p style="color: #DC2626; margin-bottom: 1rem;">
+              Unable to load nutrition history
+            </p>
+            <p style="color: #6B7280; font-size: 0.875rem;">
+              ${error.message}
+            </p>
+            <p style="color: #9CA3AF; font-size: 0.875rem; margin-top: 1rem;">
+              Note: Make sure the backend server is running with the latest code.
+            </p>
+          </div>
+        `;
+      }
+    }
+
+    function displayNutritionHistoryTable(entries) {
+      const container = document.getElementById('history-table-container');
+      
+      if (!entries || entries.length === 0) {
+        container.innerHTML = '<p style="color: #6B7280; text-align: center; padding: 2rem;">No nutrition entries found. Start logging your meals!</p>';
+        return;
+      }
+
+      // Store entries for export
+      window.nutritionEntries = entries;
+
+      const tableHtml = `
+        <table style="width: 100%; max-width: 100%; border-collapse: collapse; background: white; table-layout: fixed;">
+          <thead>
+            <tr style="background: #F3F4F6; border-bottom: 2px solid #E5E7EB;">
+              <th style="padding: 0.75rem; text-align: left; font-weight: 600; color: #374151; width: 15%;">Date</th>
+              <th style="padding: 0.75rem; text-align: left; font-weight: 600; color: #374151; width: 10%;">Method</th>
+              <th style="padding: 0.75rem; text-align: left; font-weight: 600; color: #374151; width: 30%;">Description</th>
+              <th style="padding: 0.75rem; text-align: right; font-weight: 600; color: #374151; width: 15%;">Calories</th>
+              <th style="padding: 0.75rem; text-align: right; font-weight: 600; color: #374151; width: 10%;">Protein (g)</th>
+              <th style="padding: 0.75rem; text-align: right; font-weight: 600; color: #374151; width: 10%;">Carbs (g)</th>
+              <th style="padding: 0.75rem; text-align: right; font-weight: 600; color: #374151; width: 10%;">Fat (g)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${entries.map((entry, index) => {
+              const date = new Date(entry.date).toLocaleDateString();
+              const method = entry.method === 'ai_estimate' ? '🤖 AI' : '✏️ Manual';
+              const description = entry.source_description || 'Manual entry';
+              const bgColor = index % 2 === 0 ? '#FFFFFF' : '#F9FAFB';
+              
+              return `
+                <tr style="background: ${bgColor}; border-bottom: 1px solid #E5E7EB;">
+                  <td style="padding: 0.75rem; color: #374151;">${date}</td>
+                  <td style="padding: 0.75rem; color: #374151;">${method}</td>
+                  <td style="padding: 0.75rem; color: #4B5563; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${description}">${description}</td>
+                  <td style="padding: 0.75rem; text-align: right; color: #374151; font-weight: 500;">${entry.calories || 0}</td>
+                  <td style="padding: 0.75rem; text-align: right; color: #374151;">${entry.protein_g || 0}</td>
+                  <td style="padding: 0.75rem; text-align: right; color: #374151;">${entry.carbs_g || 0}</td>
+                  <td style="padding: 0.75rem; text-align: right; color: #374151;">${entry.fat_g || 0}</td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      `;
+
+      container.innerHTML = tableHtml;
+    }
+
+    function exportNutritionHistory() {
+      if (!window.nutritionEntries || window.nutritionEntries.length === 0) {
+        alert('No nutrition entries to export. Try refreshing the history first.');
+        return;
+      }
+
+      // Create CSV content
+      let csvContent = 'Date,Method,Description,Calories,Protein (g),Carbs (g),Fat (g)\n';
+      
+      window.nutritionEntries.forEach(entry => {
+        const date = new Date(entry.date).toLocaleDateString();
+        const method = entry.method === 'ai_estimate' ? 'AI' : 'Manual';
+        const description = (entry.source_description || 'Manual entry').replace(/"/g, '""'); // Escape quotes
+        const calories = entry.calories || 0;
+        const protein = entry.protein_g || 0;
+        const carbs = entry.carbs_g || 0;
+        const fat = entry.fat_g || 0;
+        
+        csvContent += `"${date}","${method}","${description}","${calories}","${protein}","${carbs}","${fat}"\n`;
+      });
+
+      // Download CSV
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `nutrition-history-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      
+      showSuccess('nutrition-success', '✓ Nutrition history exported successfully!');
+      setTimeout(() => {
+        document.getElementById('nutrition-success').style.display = 'none';
+      }, 3000);
+    }
+
+    document.getElementById('nutrition-manual-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const calories = parseInt(document.getElementById('manual-calories').value);
+      const protein = document.getElementById('manual-protein').value;
+      const carbs = document.getElementById('manual-carbs').value;
+      const fat = document.getElementById('manual-fat').value;
+
+      if (!calories || calories < 500 || calories > 5000) {
+        showError('nutrition-error', 'Please enter calories between 500-5000');
+        return;
+      }
+
+      const data = {
+        date: document.getElementById('manual-date').value,
+        calories: calories,
+        protein_g: protein ? parseInt(protein) : null,
+        carbs_g: carbs ? parseInt(carbs) : null,
+        fat_g: fat ? parseInt(fat) : null,
+        method: 'manual'
+      };
+
+      try {
+        const response = await fetch(`${API_BASE}/api/nutrition/log`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            date: data.date,
+            calories: data.calories,
+            protein_g: data.protein_g,
+            carbs_g: data.carbs_g,
+            fat_g: data.fat_g,
+            method: 'manual',
+            source_description: 'Manual entry'
+          })
+        });
+
+        if (response.ok) {
+          showSuccess('nutrition-success', '✓ Manual entry saved!');
+          e.target.reset();
+          hideManualEntry();
+          document.getElementById('manual-date').valueAsDate = new Date();
+          // Reload history to show the new entry
+          setTimeout(() => loadNutritionHistory(), 500);
+        } else {
+          const result = await response.json();
+          showError('nutrition-error', 'Save failed: ' + (result.detail || 'Unknown error'));
+        }
+      } catch (error) {
+        showError('nutrition-error', 'Save failed: ' + error.message);
+      }
+    });
+
+    // Helper functions
+    function showSuccess(id, message) {
+      const el = document.getElementById(id);
+      el.textContent = message;
+      el.style.display = 'block';
+      setTimeout(() => el.style.display = 'none', 5000);
+    }
+
+    function showError(id, message) {
+      const el = document.getElementById(id);
+      el.textContent = message;
+      el.style.display = 'block';
+      setTimeout(() => el.style.display = 'none', 8000);
+    }
+  </script>
+</body>
+</html>
+
+
