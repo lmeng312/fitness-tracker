@@ -12,18 +12,23 @@
     }
 
     :root {
-      --primary: #2563EB;
+      --primary: #FAFF00;
+      --primary-dark: #D4FF00;
       --success: #10B981;
+      --black: #000000;
+      --dark-card: #1F1F1F;
+      --dark-card-hover: #2A2A2A;
       --neutral-50: #F9FAFB;
       --neutral-100: #F3F4F6;
       --neutral-200: #E5E7EB;
-      --neutral-700: #374151;
-      --neutral-900: #111827;
+      --neutral-700: #B0B0B0;
+      --neutral-800: #808080;
+      --neutral-900: #FFFFFF;
     }
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', system-ui, sans-serif;
-      background: var(--neutral-50);
+      background: var(--black);
       color: var(--neutral-900);
       line-height: 1.6;
     }
@@ -35,62 +40,72 @@
     }
 
     header {
-      background: white;
-      border-bottom: 2px solid var(--neutral-200);
-      padding: 1rem 2rem;
-      margin-bottom: 2rem;
+      background: transparent;
+      border-bottom: none;
+      padding: 1.5rem 2rem;
+      margin-bottom: 0;
       display: flex;
-      justify-content: space-between;
+      justify-content: center;
       align-items: center;
-    }
-
-    h1 {
-      font-size: 1.5rem;
-      font-weight: 600;
-      color: var(--neutral-900);
     }
 
     .header-actions {
       display: flex;
       gap: 1rem;
+      align-items: center;
+      background: rgba(50, 50, 50, 0.6);
+      backdrop-filter: blur(10px);
+      padding: 0.5rem 1rem;
+      border-radius: 50px;
     }
 
     .btn {
-      padding: 0.5rem 1rem;
+      padding: 0.5rem 1.5rem;
       border: none;
-      border-radius: 6px;
+      border-radius: 50px;
       cursor: pointer;
       font-size: 0.875rem;
-      font-weight: 500;
+      font-weight: 600;
       text-decoration: none;
       display: inline-block;
-      transition: all 0.2s;
+      transition: all 0.3s;
     }
 
     .btn-primary {
       background: var(--primary);
-      color: white;
+      color: var(--black);
+      box-shadow: 0 0 20px rgba(250, 255, 0, 0.3);
     }
 
     .btn-primary:hover {
-      background: #1D4ED8;
+      background: var(--primary-dark);
+      box-shadow: 0 0 30px rgba(250, 255, 0, 0.5);
+      transform: translateY(-2px);
     }
 
     .btn-secondary {
-      background: var(--neutral-200);
+      background: transparent;
       color: var(--neutral-700);
     }
 
     .btn-secondary:hover {
-      background: var(--neutral-300);
+      color: var(--neutral-900);
     }
 
     .card {
-      background: white;
+      background: var(--dark-card);
       border-radius: 12px;
       padding: 2rem;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      border: 1px solid rgba(255, 255, 255, 0.05);
       margin-bottom: 2rem;
+      transition: all 0.3s;
+    }
+
+    .card:hover {
+      background: var(--dark-card-hover);
+      border-color: rgba(250, 255, 0, 0.2);
+      box-shadow: 0 4px 30px rgba(250, 255, 0, 0.1);
     }
 
     .card-title {
@@ -125,16 +140,18 @@
     input, select {
       width: 100%;
       padding: 0.75rem;
-      border: 1px solid var(--neutral-200);
-      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
       font-size: 1rem;
       font-family: inherit;
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--neutral-900);
     }
 
     input:focus, select:focus {
       outline: none;
       border-color: var(--primary);
-      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+      box-shadow: 0 0 0 3px rgba(250, 255, 0, 0.15);
     }
 
     .help-text {
@@ -171,9 +188,8 @@
 </head>
 <body>
   <header>
-    <h1>✨ Fitness Tracker</h1>
     <div class="header-actions">
-      <a href="/dashboard.html" class="btn btn-secondary">← Back to Dashboard</a>
+      <a href="/" class="btn btn-secondary">← Return to Overview</a>
     </div>
   </header>
 
@@ -352,7 +368,7 @@
         
         // Redirect to dashboard after 1.5 seconds
         setTimeout(() => {
-          window.location.href = '/dashboard.html';
+          window.location.href = '/';
         }, 1500);
       } catch (error) {
         showError('Failed to save settings: ' + error.message);

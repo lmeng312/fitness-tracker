@@ -15,22 +15,27 @@
     }
 
     :root {
-      --primary: #2563EB;
+      --primary: #FAFF00;
+      --primary-dark: #D4FF00;
       --success: #10B981;
       --warning: #F59E0B;
       --danger: #EF4444;
       --info: #3B82F6;
+      --black: #000000;
+      --dark-card: #1F1F1F;
+      --dark-card-hover: #2A2A2A;
       --neutral-50: #F9FAFB;
       --neutral-100: #F3F4F6;
       --neutral-200: #E5E7EB;
-      --neutral-700: #374151;
-      --neutral-900: #111827;
+      --neutral-700: #B0B0B0;
+      --neutral-800: #808080;
+      --neutral-900: #FFFFFF;
       --font-sans: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', system-ui, sans-serif;
     }
 
     body {
       font-family: var(--font-sans);
-      background: var(--neutral-50);
+      background: var(--black);
       color: var(--neutral-900);
       line-height: 1.6;
       height: 100vh;
@@ -39,32 +44,31 @@
     }
 
     header {
-      background: white;
-      border-bottom: 2px solid var(--neutral-200);
-      padding: 1rem 2rem;
+      background: transparent;
+      border-bottom: none;
+      padding: 1.5rem 2rem;
       display: flex;
-      justify-content: space-between;
+      justify-content: center;
       align-items: center;
-    }
-
-    h1 {
-      font-size: 1.75rem;
-      font-weight: 700;
-      color: var(--primary);
     }
 
     .header-actions {
       display: flex;
       gap: 1rem;
+      align-items: center;
+      background: rgba(50, 50, 50, 0.6);
+      backdrop-filter: blur(10px);
+      padding: 0.5rem 1rem;
+      border-radius: 50px;
     }
 
     .btn {
-      padding: 0.625rem 1.25rem;
-      border-radius: 8px;
+      padding: 0.625rem 1.5rem;
+      border-radius: 50px;
       border: none;
       font-weight: 600;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: all 0.3s;
       font-size: 0.875rem;
       text-decoration: none;
       display: inline-block;
@@ -72,21 +76,23 @@
 
     .btn-primary {
       background: var(--primary);
-      color: white;
+      color: var(--black);
+      box-shadow: 0 0 20px rgba(250, 255, 0, 0.3);
     }
 
     .btn-primary:hover {
-      background: #1D4ED8;
+      background: var(--primary-dark);
+      box-shadow: 0 0 30px rgba(250, 255, 0, 0.5);
+      transform: translateY(-2px);
     }
 
     .btn-secondary {
-      background: white;
+      background: transparent;
       color: var(--neutral-700);
-      border: 1px solid var(--neutral-200);
     }
 
     .btn-secondary:hover {
-      background: var(--neutral-50);
+      color: var(--neutral-900);
     }
 
     .btn-icon {
@@ -135,9 +141,10 @@
       flex: 1;
       display: flex;
       flex-direction: column;
-      background: white;
+      background: var(--dark-card);
+      border: 1px solid rgba(255, 255, 255, 0.05);
       border-radius: 12px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
       overflow: hidden;
     }
 
@@ -182,7 +189,8 @@
     }
 
     .message-content {
-      background: var(--neutral-100);
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.05);
       padding: 0.75rem 1rem;
       border-radius: 12px;
       max-width: 70%;
@@ -201,11 +209,12 @@
 
     .message.user .message-content {
       background: var(--primary);
-      color: white;
+      color: var(--black);
+      border: none;
     }
 
     .message.user .message-content strong {
-      color: white;
+      color: var(--black);
     }
 
     .message-actions {
@@ -228,8 +237,8 @@
 
     .chat-input-container {
       padding: 1.5rem;
-      border-top: 1px solid var(--neutral-200);
-      background: white;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      background: var(--dark-card-hover);
     }
 
     .chat-input-wrapper {
@@ -241,40 +250,44 @@
     .chat-input {
       flex: 1;
       padding: 0.75rem 1rem;
-      border: 1px solid var(--neutral-200);
+      border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 8px;
       font-size: 0.875rem;
       resize: none;
       min-height: 44px;
       max-height: 120px;
       font-family: inherit;
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--neutral-900);
     }
 
     .chat-input:focus {
       outline: none;
       border-color: var(--primary);
-      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+      box-shadow: 0 0 0 3px rgba(250, 255, 0, 0.15);
     }
 
     .send-button {
       padding: 0.75rem 1.5rem;
       background: var(--primary);
-      color: white;
+      color: var(--black);
       border: none;
       border-radius: 8px;
       font-weight: 600;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: all 0.3s;
       font-size: 0.875rem;
+      box-shadow: 0 0 20px rgba(250, 255, 0, 0.3);
     }
 
     .send-button:hover {
-      background: #1D4ED8;
+      background: var(--primary-dark);
+      box-shadow: 0 0 30px rgba(250, 255, 0, 0.5);
     }
 
     .send-button:disabled {
-      background: var(--neutral-200);
-      color: var(--neutral-500);
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--neutral-800);
       cursor: not-allowed;
     }
 
@@ -316,24 +329,26 @@
 
     .quick-action {
       padding: 0.5rem 1rem;
-      background: var(--neutral-100);
-      border: 1px solid var(--neutral-200);
-      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 50px;
       font-size: 0.75rem;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: all 0.3s;
+      color: var(--neutral-700);
     }
 
     .quick-action:hover {
       background: var(--primary);
-      color: white;
+      color: var(--black);
       border-color: var(--primary);
+      transform: translateY(-2px);
     }
 
     .error-message {
-      background: #FEE2E2;
+      background: rgba(239, 68, 68, 0.1);
       border: 1px solid var(--danger);
-      color: #991B1B;
+      color: var(--danger);
       padding: 1rem;
       border-radius: 8px;
       margin-bottom: 1rem;
@@ -371,11 +386,10 @@
 </head>
 <body>
   <header>
-    <h1>🏃 Fitness Tracker</h1>
     <div class="header-actions">
-      <a href="/dashboard.html" class="btn btn-secondary">📊 Dashboard</a>
-      <a href="/settings.html" class="btn btn-secondary">⚙️ Settings</a>
-      <a href="/upload.html" class="btn btn-primary">📁 Upload</a>
+      <a href="/" class="btn btn-secondary">← Return to Overview</a>
+      <a href="/upload.html" class="btn btn-secondary">Fitness & Nutrition Data</a>
+      <a href="/settings.html" class="btn btn-secondary">Settings</a>
     </div>
   </header>
 

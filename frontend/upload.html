@@ -11,10 +11,22 @@
       box-sizing: border-box;
     }
 
+    :root {
+      --primary: #FAFF00;
+      --primary-dark: #D4FF00;
+      --success: #10B981;
+      --black: #000000;
+      --dark-card: #1F1F1F;
+      --dark-card-hover: #2A2A2A;
+      --neutral-700: #B0B0B0;
+      --neutral-800: #808080;
+      --neutral-900: #FFFFFF;
+    }
+
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
-      background: #F9FAFB;
-      color: #111827;
+      background: var(--black);
+      color: var(--neutral-900);
     }
 
     .container {
@@ -24,38 +36,43 @@
     }
 
     header {
-      background: white;
-      border-bottom: 2px solid #E5E7EB;
-      padding: 1rem 2rem;
-      margin: -2rem -2rem 2rem -2rem;
+      background: transparent;
+      border-bottom: none;
+      padding: 1.5rem 2rem;
+      margin: 0;
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
 
-    h1 {
+    header h1 {
       font-size: 1.5rem;
-      color: #2563EB;
       font-weight: 700;
+      color: var(--neutral-900);
+      letter-spacing: 0.05em;
     }
 
     .nav-link {
-      color: #6B7280;
+      color: var(--neutral-700);
       text-decoration: none;
-      padding: 0.5rem 1rem;
-      border-radius: 6px;
-      transition: all 0.2s;
+      padding: 0.5rem 1.5rem;
+      border-radius: 50px;
+      transition: all 0.3s;
+      font-weight: 600;
+      font-size: 0.875rem;
+      display: inline-flex;
+      align-items: center;
     }
 
     .nav-link:hover {
-      background: #F3F4F6;
-      color: #111827;
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--neutral-900);
     }
 
     .tabs {
       display: flex;
       gap: 1rem;
-      border-bottom: 2px solid #E5E7EB;
+      border-bottom: 2px solid rgba(255, 255, 255, 0.1);
       margin-bottom: 2rem;
     }
 
@@ -63,14 +80,18 @@
       padding: 1rem 1.5rem;
       cursor: pointer;
       border-bottom: 3px solid transparent;
-      transition: all 0.2s;
-      font-weight: 500;
-      color: #6B7280;
+      transition: all 0.3s;
+      font-weight: 600;
+      color: var(--neutral-700);
     }
 
     .tab.active {
-      color: #2563EB;
-      border-bottom-color: #2563EB;
+      color: var(--primary);
+      border-bottom-color: var(--primary);
+    }
+
+    .tab:hover {
+      color: var(--neutral-900);
     }
 
     .tab-content {
@@ -84,11 +105,19 @@
     }
 
     .card {
-      background: white;
+      background: var(--dark-card);
       border-radius: 12px;
       padding: 2rem;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      border: 1px solid rgba(255, 255, 255, 0.05);
       margin-bottom: 2rem;
+      transition: all 0.3s;
+    }
+
+    .card:hover {
+      background: var(--dark-card-hover);
+      border-color: rgba(250, 255, 0, 0.2);
+      box-shadow: 0 4px 30px rgba(250, 255, 0, 0.1);
     }
 
     .card-title {
@@ -98,22 +127,23 @@
     }
 
     .upload-zone {
-      border: 3px dashed #D1D5DB;
+      border: 3px dashed rgba(255, 255, 255, 0.2);
       border-radius: 12px;
       padding: 3rem;
       text-align: center;
       cursor: pointer;
       transition: all 0.3s;
+      background: rgba(255, 255, 255, 0.02);
     }
 
     .upload-zone:hover {
-      border-color: #2563EB;
-      background: #F0F9FF;
+      border-color: var(--primary);
+      background: rgba(250, 255, 0, 0.05);
     }
 
     .upload-zone.dragging {
-      border-color: #2563EB;
-      background: #DBEAFE;
+      border-color: var(--primary);
+      background: rgba(250, 255, 0, 0.1);
     }
 
     .upload-icon {
@@ -265,13 +295,13 @@
     <header>
       <h1>🏃 Fitness & Nutrition Data</h1>
       <div>
-        <a href="/dashboard.html" class="nav-link">← Back to Dashboard</a>
+        <a href="/" class="nav-link">← Return to Overview</a>
       </div>
     </header>
 
     <div class="tabs">
-      <div class="tab active" onclick="switchTab('activity')">🏃 Fitness Data</div>
-      <div class="tab" onclick="switchTab('nutrition')">🍽️ Nutrition Data</div>
+      <div class="tab active" onclick="switchTab('activity')">🏃 Fitness</div>
+      <div class="tab" onclick="switchTab('nutrition')">🍽️ Nutrition</div>
     </div>
 
     <!-- Activity Data Tab (Combined Upload & Manual Entry) -->
@@ -299,8 +329,8 @@
         <div class="upload-zone" id="upload-zone">
           <div class="upload-icon">📁</div>
           <h3>Drag & Drop your file here</h3>
-          <p style="color: #6B7280; margin: 1rem 0;">or click to browse</p>
-          <p style="color: #9CA3AF; font-size: 0.875rem;">Supports CSV, XLSX, XLS files</p>
+          <p style="color: var(--neutral-700); margin: 1rem 0;">or click to browse</p>
+          <p style="color: var(--neutral-800); font-size: 0.875rem;">Supports CSV, XLSX, XLS files</p>
           <input type="file" id="file-input" accept=".csv,.xlsx,.xls" style="display: none;">
         </div>
 
@@ -311,13 +341,13 @@
         </div>
 
         <div style="margin-top: 2rem;">
-          <h4 style="margin-bottom: 1rem;">Required CSV Format:</h4>
-          <pre style="background: #F3F4F6; padding: 1rem; border-radius: 8px; overflow-x: auto; font-size: 0.875rem;">date,activity_type,duration_min,distance_miles,avg_pace_min_per_mile,avg_hr_bpm,calories_burned
+          <h4 style="margin-bottom: 1rem; color: var(--neutral-900);">Required CSV Format:</h4>
+          <pre style="background: rgba(255, 255, 255, 0.05); color: var(--neutral-900); padding: 1rem; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; overflow-x: auto; font-size: 0.875rem;">date,activity_type,duration_min,distance_miles,avg_pace_min_per_mile,avg_hr_bpm,calories_burned
 2024-10-20,running,30,3.1,9.68,155,350
 2024-10-21,cycling,60,12.4,null,145,500</pre>
           
-          <p style="margin-top: 1rem; color: #6B7280;">
-            <strong>Tip:</strong> Export from Strava and use <code>convert_strava.py</code> to convert to this format.
+          <p style="margin-top: 1rem; color: var(--neutral-700);">
+            <strong style="color: var(--neutral-900);">Tip:</strong> Export from Strava and use <code style="background: rgba(255, 255, 255, 0.05); padding: 0.2rem 0.4rem; border-radius: 4px; color: var(--primary);">convert_strava.py</code> to convert to this format.
           </p>
         </div>
       </div>
@@ -521,14 +551,14 @@
           <div class="upload-zone" id="nutrition-upload-zone">
             <div class="upload-icon">📁</div>
             <h3>Drag & Drop your nutrition CSV here</h3>
-            <p style="color: #6B7280; margin: 1rem 0;">or click to browse</p>
-            <p style="color: #9CA3AF; font-size: 0.875rem;">Supports CSV files</p>
+            <p style="color: var(--neutral-700); margin: 1rem 0;">or click to browse</p>
+            <p style="color: var(--neutral-800); font-size: 0.875rem;">Supports CSV files</p>
             <input type="file" id="nutrition-file-input" accept=".csv" style="display: none;">
           </div>
 
           <div style="margin-top: 2rem;">
-            <h4 style="margin-bottom: 1rem;">Required CSV Format:</h4>
-            <div style="background: #F3F4F6; padding: 1rem; border-radius: 8px; font-family: monospace; font-size: 0.875rem;">
+            <h4 style="margin-bottom: 1rem; color: var(--neutral-900);">Required CSV Format:</h4>
+            <div style="background: rgba(255, 255, 255, 0.05); color: var(--neutral-900); padding: 1rem; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; font-family: monospace; font-size: 0.875rem;">
               <div>date,meal_description,calories,protein_g,carbs_g,fat_g</div>
               <div>2024-10-20,"Breakfast: oatmeal with banana",350,12,65,8</div>
               <div>2024-10-20,"Lunch: grilled chicken salad",450,35,25,20</div>
@@ -778,7 +808,7 @@
         if (response.ok) {
           showSuccess('file-success', `✓ Success! Processed ${result.message}`);
           setTimeout(() => {
-            window.location.href = '/dashboard.html';
+            window.location.href = '/';
           }, 2000);
         } else {
           showError('file-error', 'Upload failed: ' + (result.detail || 'Unknown error'));
