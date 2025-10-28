@@ -557,21 +557,21 @@
         totalDuration += duration;
         
         // Classify intensity based on heart rate, pace, or activity type
-        const avgHR = workout.avg_hr_bpm || 0;
-        const pace = workout.avg_pace_min_per_mile || 0;
-        const activityType = workout.activity_type || '';
+        const avgHR = workout.heart_rate_avg || 0;
+        const pace = workout.pace_min_mi || 0;
+        const activityType = workout.type || '';
         
         let intensity = 'low';
         
         // High intensity indicators
-        if (avgHR >= 160 || (activityType === 'running' && pace <= 7.0) || 
-            activityType === 'strength' || activityType === 'interval') {
+        if (avgHR >= 160 || (activityType === 'Run' && pace <= 7.0) || 
+            activityType === 'WeightTraining' || activityType === 'interval') {
           intensity = 'high';
           highIntensityCount++;
         }
         // Moderate intensity indicators  
-        else if (avgHR >= 140 || (activityType === 'running' && pace <= 9.0) || 
-                 activityType === 'cycling' || activityType === 'swimming') {
+        else if (avgHR >= 140 || (activityType === 'Run' && pace <= 9.0) || 
+                 activityType === 'Ride' || activityType === 'Swim') {
           intensity = 'moderate';
           moderateIntensityCount++;
         }
@@ -1087,10 +1087,10 @@
     function createPaceTrendsChart(rawData) {
       try {
         console.log('Creating pace trends chart...');
-        const runningWorkouts = rawData.workouts.filter(w => w.activity_type === 'running' && w.avg_pace_min_per_mile);
+        const runningWorkouts = rawData.workouts.filter(w => w.type === 'Run' && w.pace_min_mi);
         console.log('Running workouts found:', runningWorkouts.length);
         const dates = runningWorkouts.map(w => new Date(w.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
-        const paces = runningWorkouts.map(w => w.avg_pace_min_per_mile);
+        const paces = runningWorkouts.map(w => w.pace_min_mi);
 
       if (window.paceChart) {
         window.paceChart.destroy();
@@ -1699,11 +1699,11 @@
 
         // Average running pace
         const runningWorkouts = lastWeekWorkouts.filter(w => 
-          w.activity_type === 'running' && w.avg_pace_min_per_mile
+          w.type === 'Run' && w.pace_min_mi
         );
         
         if (runningWorkouts.length > 0) {
-          const avgPace = runningWorkouts.reduce((sum, w) => sum + w.avg_pace_min_per_mile, 0) / runningWorkouts.length;
+          const avgPace = runningWorkouts.reduce((sum, w) => sum + w.pace_min_mi, 0) / runningWorkouts.length;
           document.getElementById('avg-pace').textContent = formatPace(avgPace) + '/mi';
         } else {
           document.getElementById('avg-pace').textContent = 'N/A';
@@ -1718,7 +1718,7 @@
           distance: totalDistance,
           sleep: lastWeekSleep,
           netCalories: weeklyNetCalories,
-          avgPace: runningWorkouts.length > 0 ? runningWorkouts.reduce((sum, w) => sum + w.avg_pace_min_per_mile, 0) / runningWorkouts.length : null,
+          avgPace: runningWorkouts.length > 0 ? runningWorkouts.reduce((sum, w) => sum + w.pace_min_mi, 0) / runningWorkouts.length : null,
           caloriesConsumed: weeklyCaloriesConsumed,
           caloriesBurned: weeklyCaloriesBurned
         });

@@ -1745,6 +1745,111 @@ def strava_sync_now(days: int = Query(default=30), db: Session = Depends(get_db_
         raise HTTPException(status_code=500, detail=f"Error syncing Strava activities: {str(e)}")
 
 
+@app.get("/api/strava/debug")
+def strava_debug(db: Session = Depends(get_db_session)):
+    """
+    Debug endpoint to see raw Strava data and diagnose sync issues
+    """
+    try:
+        user = db.query(User).filter(User.id == 1).first()
+        
+        if not user or not user.access_token:
+            return {
+                "error": "Strava not connected",
+                "solution": "Visit /auth/strava/login to connect your Strava account"
+            }
+        
+        # Get fresh token
+        access_token = StravaClient.ensure_fresh_token(user, db)
+        
+        # Fetch recent activities from Strava API
+        activities = StravaClient.get_athlete_activities(
+            access_token,
+            per_page=10  # Just 10 for debugging
+        )
+        
+        # Check database workouts
+        db_workouts = db.query(Workout).filter(
+            Workout.user_id == 1
+        ).order_by(Workout.date.desc()).limit(10).all()
+        
+        return {
+            "strava_connection": {
+                "connected": True,
+                "strava_user_id": user.strava_user_id,
+                "token_expires_at": user.token_expires_at,
+                "token_expired": user.token_expires_at < int(datetime.utcnow().timestamp()) if user.token_expires_at else True
+            },
+            "raw_strava_activities": [
+                {
+                    "id": a.get("id"),
+                    "name": a.get("name"),
+                    "type": a.get("type"),
+                    "date": a.get("start_date"),
+                    "distance_meters": a.get("distance"),
+                    "distance_miles": round(a.get("distance", 0) / 1609.34, 2),
+                    "moving_time_sec": a.get("moving_time"),
+                    "duration_min": round(a.get("moving_time", 0) / 60, 1),
+                    "average_heartrate": a.get("average_heartrate"),
+                    "calories": a.get("calories")
+                } for a in activities[:10]
+            ],
+            "database_workouts": [
+                {
+                    "id": w.id,
+                    "date": str(w.date),
+                    "type": w.type,
+                    "distance_mi": w.distance_mi,
+                    "duration_min": w.duration_min,
+                    "pace_min_mi": w.pace_min_mi,
+                    "heart_rate_avg": w.heart_rate_avg,
+                    "strava_activity_id": w.strava_activity_id
+                } for w in db_workouts
+            ],
+            "diagnosis": {
+                "strava_activities_fetched": len(activities),
+                "database_workouts_stored": len(db_workouts),
+                "total_database_workouts": db.query(Workout).filter(Workout.user_id == 1).count(),
+                "issue_detected": _diagnose_sync_issue(len(activities), len(db_workouts)),
+                "recommendation": _get_sync_recommendation(len(activities), len(db_workouts))
+            }
+        }
+    except Exception as e:
+        return {
+            "error": str(e),
+            "type": type(e).__name__,
+            "solution": "Check server logs for detailed error"
+        }
+
+
+def _diagnose_sync_issue(strava_count: int, db_count: int) -> str:
+    """Helper function to diagnose sync issues"""
+    if strava_count == 0 and db_count == 0:
+        return "No activities found in Strava OR no activities in date range"
+    elif strava_count > 0 and db_count == 0:
+        return "Activities exist in Strava but not syncing to database"
+    elif strava_count == 0 and db_count > 0:
+        return "Database has old workouts but no recent Strava activities"
+    elif strava_count == db_count:
+        return "Sync appears to be working correctly"
+    elif db_count < strava_count:
+        return "Some activities not synced (check deduplication or sync days parameter)"
+    else:
+        return "More database workouts than Strava activities (manual uploads?)"
+
+
+def _get_sync_recommendation(strava_count: int, db_count: int) -> str:
+    """Helper function to get sync recommendations"""
+    if strava_count == 0 and db_count == 0:
+        return "1. Check if you have activities on Strava.com 2. Try increasing days parameter: /auth/strava/sync?days=90"
+    elif strava_count > 0 and db_count == 0:
+        return "Run manual sync: curl -X POST https://your-domain.com/auth/strava/sync?days=90"
+    elif strava_count > db_count:
+        return "Run manual sync with more days: curl -X POST https://your-domain.com/auth/strava/sync?days=180"
+    else:
+        return "Sync is working! Check dashboard at /dashboard.html"
+
+
 # ============================================================================
 # STRAVA WEBHOOK ENDPOINTS
 # ============================================================================
