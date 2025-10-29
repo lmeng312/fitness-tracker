@@ -222,7 +222,7 @@ class StravaClient:
         # Calculate after timestamp (30 days ago)
         after_timestamp = int((datetime.utcnow() - timedelta(days=days)).timestamp())
         
-        # Fetch activities
+        # Fetch activity summaries first (for efficiency)
         activities = StravaClient.get_athlete_activities(
             access_token,
             after=after_timestamp,
@@ -230,17 +230,28 @@ class StravaClient:
         )
         
         new_count = 0
-        for activity in activities:
+        for summary in activities:
             # Check if activity already exists
             existing = db.query(Workout).filter(
-                Workout.strava_activity_id == str(activity["id"])
+                Workout.strava_activity_id == str(summary["id"])
             ).first()
             
             if not existing:
-                # Create new workout
-                workout = StravaClient.activity_to_workout(activity, user.id)
-                db.add(workout)
-                new_count += 1
+                try:
+                    # Fetch detailed activity data (includes calories)
+                    detailed_activity = StravaClient.get_activity_details(access_token, summary["id"])
+                    
+                    # Create new workout with detailed data
+                    workout = StravaClient.activity_to_workout(detailed_activity, user.id)
+                    db.add(workout)
+                    new_count += 1
+                    
+                except Exception as e:
+                    print(f"⚠️ Failed to fetch details for activity {summary['id']}: {e}")
+                    # Fallback to summary data if detailed fetch fails
+                    workout = StravaClient.activity_to_workout(summary, user.id)
+                    db.add(workout)
+                    new_count += 1
         
         db.commit()
         print(f"✅ Synced {new_count} new activities from Strava")
@@ -294,4 +305,5 @@ class StravaClient:
         )
         response.raise_for_status()
         print(f"✅ Deleted webhook subscription {subscription_id}")
+
 
