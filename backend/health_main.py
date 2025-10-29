@@ -1762,11 +1762,19 @@ def strava_debug(db: Session = Depends(get_db_session)):
         # Get fresh token
         access_token = StravaClient.ensure_fresh_token(user, db)
         
-        # Fetch recent activities from Strava API
+        # Fetch recent activities from Strava API (summary)
         activities = StravaClient.get_athlete_activities(
             access_token,
             per_page=10  # Just 10 for debugging
         )
+        
+        # Test detailed fetch for first activity to show calories
+        detailed_activity = None
+        if activities:
+            try:
+                detailed_activity = StravaClient.get_activity_details(access_token, activities[0]["id"])
+            except Exception as e:
+                print(f"Debug: Failed to fetch detailed activity: {e}")
         
         # Check database workouts
         db_workouts = db.query(Workout).filter(
@@ -1794,6 +1802,12 @@ def strava_debug(db: Session = Depends(get_db_session)):
                     "calories": a.get("calories")
                 } for a in activities[:10]
             ],
+            "detailed_activity_test": {
+                "activity_id": detailed_activity.get("id") if detailed_activity else None,
+                "calories": detailed_activity.get("calories") if detailed_activity else None,
+                "kilojoules": detailed_activity.get("kilojoules") if detailed_activity else None,
+                "has_detailed_data": detailed_activity is not None
+            },
             "database_workouts": [
                 {
                     "id": w.id,
