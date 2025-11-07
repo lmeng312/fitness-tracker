@@ -394,11 +394,6 @@
   </header>
 
   <div class="main-content">
-    <div class="ai-header">
-      <h2>✨ AI Health Insights</h2>
-      <p>Ask me anything about your fitness data, training patterns, and health trends</p>
-    </div>
-
     <div class="chat-container">
       <div class="chat-messages" id="chat-messages">
         <div class="welcome-message">
@@ -704,6 +699,90 @@
         // User can still try to ask questions, we'll load data when needed
       }
     });
+
+    async function suggestWorkout() {
+      const intent = document.getElementById('coach-intent').value.trim();
+      if (!intent) return;
+      const resEl = document.getElementById('coach-results');
+      resEl.innerHTML = '<div class="loading">Generating workout...</div>';
+      try {
+        const res = await fetch('/api/coach/workouts/suggest', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ request: intent })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Failed');
+        let html = `<div><strong>${data.title}</strong> • ${data.total_duration_min} min${data.focus ? ' • ' + data.focus : ''}</div>`;
+        if (Array.isArray(data.blocks)) {
+          html += '<ul style="margin-top:0.5rem; padding-left:1.25rem;">';
+          data.blocks.forEach(b => {
+            html += `<li><strong>${b.name}</strong> — ${b.duration_min} min<br><span style=\"color: var(--neutral-700)\">${b.instructions || ''}</span>`;
+            if (Array.isArray(b.exercises) && b.exercises.length) {
+              html += '<ul style="margin-top:0.25rem; padding-left:1.25rem;">';
+              b.exercises.forEach(ex => {
+                const cues = ex.cues ? ` — <span style=\"color: var(--neutral-700)\">${ex.cues}</span>` : '';
+                html += `<li>${ex.name || 'Exercise'}: ${ex.sets || 1}×${ex.reps || ''}${ex.tempo ? ` @ ${ex.tempo}`:''}${ex.rest_sec? ` • Rest ${ex.rest_sec}s`:''}${ex.rpe? ` • RPE ${ex.rpe}`:''}${cues}</li>`;
+              });
+              html += '</ul>';
+            }
+            html += '</li>';
+          });
+          html += '</ul>';
+        }
+        if (Array.isArray(data.more_about_this_plan) && data.more_about_this_plan.length) {
+          html += '<div style="margin-top:0.75rem;"><strong>More about this plan</strong><ul style="padding-left:1.25rem;">';
+          data.more_about_this_plan.slice(0,3).forEach(line => {
+            html += `<li>${line}</li>`;
+          });
+          html += '</ul></div>';
+        }
+        resEl.innerHTML = html;
+      } catch (e) {
+        resEl.innerHTML = `<div class="error-message">${e.message}</div>`;
+      }
+    }
+
+    async function suggestMeals() {
+      const intent = document.getElementById('coach-intent').value.toLowerCase();
+      // naive parse of workout type and duration
+      const durationMatch = intent.match(/(\d+)\s*min/);
+      const duration = durationMatch ? parseInt(durationMatch[1]) : 45;
+      const type = intent.includes('run') ? 'running' : intent.includes('cycle') ? 'cycling' : 'strength';
+      const resEl = document.getElementById('coach-results');
+      resEl.innerHTML = '<div class="loading">Suggesting meals...</div>';
+      try {
+        const res = await fetch('/api/coach/meals/suggest', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ workout_type: type, duration_min: duration, timing: 'both' })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Failed');
+        function list(items, label){
+          if (!Array.isArray(items) || !items.length) return '';
+          let html = `<div style="margin-top:0.5rem;"><strong>${label}</strong><ul style=\"padding-left:1.25rem;\">`;
+          items.forEach(m => {
+            html += `<li><strong>${m.name}</strong> — ${m.calories} cal • P${m.protein_g} C${m.carbs_g} F${m.fat_g}${m.notes? ' • ' + m.notes: ''}</li>`;
+          });
+          html += '</ul></div>';
+          return html;
+        }
+        let html = '';
+        html += list(data.pre, 'Pre-workout');
+        html += list(data.post, 'Post-workout');
+        if (Array.isArray(data.more_about_this_plan) && data.more_about_this_plan.length) {
+          html += '<div style="margin-top:0.75rem;"><strong>More about this plan</strong><ul style="padding-left:1.25rem;">';
+          data.more_about_this_plan.slice(0,3).forEach(line => {
+            html += `<li>${line}</li>`;
+          });
+          html += '</ul></div>';
+        }
+        resEl.innerHTML = html || '<div>No suggestions available.</div>';
+      } catch (e) {
+        resEl.innerHTML = `<div class="error-message">${e.message}</div>`;
+      }
+    }
   </script>
 </body>
 </html>

@@ -510,7 +510,7 @@
           <div class="form-grid">
             <div class="form-group">
               <label class="form-label">Calories</label>
-              <input type="number" class="form-input" id="manual-calories" min="500" max="5000" placeholder="2000" required>
+              <input type="number" class="form-input" id="manual-calories" min="0" max="10000" placeholder="2000" required>
             </div>
 
             <div class="form-group">
@@ -1117,8 +1117,8 @@
       const carbs = document.getElementById('manual-carbs').value;
       const fat = document.getElementById('manual-fat').value;
 
-      if (!calories || calories < 500 || calories > 5000) {
-        showError('nutrition-error', 'Please enter calories between 500-5000');
+      if (!calories || calories < 0 || calories > 10000) {
+        showError('nutrition-error', 'Please enter calories between 0-10000');
         return;
       }
 

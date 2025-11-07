@@ -23,7 +23,7 @@ load_dotenv(find_dotenv())
 
 # Database imports
 from database import init_db, get_db_session
-from models import User, Workout, Nutrition
+from models import User, Workout, Nutrition, UserPreferences, InfluencerSource
 from strava_client import StravaClient, STRAVA_WEBHOOK_VERIFY_TOKEN
 
 # Observability (Arize AX - OpenInference)
@@ -63,6 +63,7 @@ from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
 from functools import lru_cache
 import hashlib
+import httpx
 
 
 # ============================================================================
@@ -85,6 +86,7 @@ _analysis_cache = {}
 CACHE_ENABLED = os.getenv("ENABLE_CACHE", "1").lower() not in {"0", "false", "no"}
 CACHE_MAX_AGE = int(os.getenv("CACHE_MAX_AGE_SECONDS", "3600"))  # 1 hour default
 LITE_MODE = os.getenv("LITE_MODE", "0").lower() not in {"0", "false", "no"}  # Skip expensive correlations
+COACH_MODE = os.getenv("COACH_MODE", "0").lower() not in {"0", "false", "no"}
 
 
 # ============================================================================
@@ -94,10 +96,10 @@ LITE_MODE = os.getenv("LITE_MODE", "0").lower() not in {"0", "false", "no"}  # S
 class NutritionEntry(BaseModel):
     """Nutrition log entry"""
     date: date
-    calories: int = Field(ge=500, le=5000, description="Total calories consumed")
-    protein_g: Optional[int] = Field(None, ge=0, le=500)
-    carbs_g: Optional[int] = Field(None, ge=0, le=1000)
-    fat_g: Optional[int] = Field(None, ge=0, le=500)
+    calories: int = Field(ge=0, le=10000, description="Total calories consumed")
+    protein_g: Optional[int] = Field(None, ge=0, le=1000)
+    carbs_g: Optional[int] = Field(None, ge=0, le=2000)
+    fat_g: Optional[int] = Field(None, ge=0, le=1000)
     method: str = Field(default="manual", description="ai_estimate or manual")
     source_description: Optional[str] = None  # Original meal description for AI
     notes: Optional[str] = None
@@ -147,6 +149,76 @@ class HealthRequest(BaseModel):
     nutrition: List[NutritionEntry] = []
     goals: Optional[Dict[str, Any]] = None
     session_id: Optional[str] = None
+
+
+# ------------------------------
+# Coach Mode: Pydantic models
+# ------------------------------
+
+class PreferencesUpsert(BaseModel):
+    equipment: List[str] = []
+    dietary_prefs: List[str] = []
+
+
+class InfluencerEntry(BaseModel):
+    platform: Optional[str] = None
+    handle: Optional[str] = None
+    url: Optional[str] = None
+    tags: List[str] = []
+
+
+class InfluencersUpsert(BaseModel):
+    sources: List[InfluencerEntry]
+
+
+class SuggestWorkoutRequest(BaseModel):
+    request: str = Field(description="Natural language intent, e.g., '45 min strength for knee strengthening'")
+    equipment: Optional[List[str]] = None
+    focus: Optional[str] = None
+    duration_min: Optional[int] = None
+
+
+class WorkoutBlock(BaseModel):
+    name: str
+    duration_min: int
+    instructions: str
+    exercises: Optional[List[Dict[str, Any]]] = None  # [{name, sets, reps, tempo, rest_sec, rpe, cues}]
+
+
+class WorkoutPlanResponse(BaseModel):
+    title: str
+    total_duration_min: int
+    focus: Optional[str] = None
+    equipment: List[str] = []
+    blocks: List[WorkoutBlock] = []
+    rationale: Optional[str] = None
+    more_about_this_plan: List[str] = []
+    readiness_score: Optional[int] = None
+    recommended_intensity: Optional[str] = None
+    pace_zones: Optional[Dict[str, Any]] = None
+
+
+class SuggestMealsRequest(BaseModel):
+    workout_type: str
+    duration_min: int
+    timing: str = Field(description="pre or post")
+    dietary_prefs: List[str] = []
+
+
+class MealSuggestion(BaseModel):
+    name: str
+    calories: int
+    protein_g: int
+    carbs_g: int
+    fat_g: int
+    notes: Optional[str] = None
+
+
+class MealSuggestionsResponse(BaseModel):
+    pre: List[MealSuggestion] = []
+    post: List[MealSuggestion] = []
+    rationale: Optional[str] = None
+    more_about_this_plan: List[str] = []
 
 
 class HealthResponse(BaseModel):
@@ -554,6 +626,282 @@ def detect_correlations(performance_data: List[dict], recovery_data: List[dict],
         return [{"error": str(e), "correlation": 0}]
 
 
+# ------------------------------
+# Coach Mode Tools
+# ------------------------------
+
+@tool
+def generate_workout_plan(intent: str, equipment: List[str], focus: Optional[str] = None, duration_min: Optional[int] = None) -> dict:
+    """Generate a structured workout plan from a natural-language intent, tailored to available equipment.
+    Returns a dict with title, total_duration_min, focus, equipment, blocks[{name,duration_min,instructions,exercises[]}], rationale.
+    """
+    try:
+        duration_hint = f"Target duration: {duration_min} minutes." if duration_min else ""
+        eq = ", ".join(equipment) if equipment else "bodyweight"
+        prompt = f"""
+You are a certified strength coach. Create a time-boxed, safe and progressive workout.
+
+Intent: {intent}
+Focus: {focus or 'general strength'}
+Equipment available: {eq}
+{duration_hint}
+
+Rules:
+- Keep total time within ±5 minutes of target if provided
+- Use only available equipment; default to bodyweight otherwise
+- Include warm-up, main sets (with reps/tempo), and cooldown/mobility
+- Emphasize joint-friendly progressions if knee focus is requested
+ - For Main Set, provide 3–5 exercises each with: sets, reps, tempo, rest_sec, target RPE, and 1–2 coaching cues
+
+Return ONLY valid JSON with keys: title,total_duration_min,focus,equipment,blocks(name,duration_min,instructions,exercises[{name,sets,reps,tempo,rest_sec,rpe,cues}]),rationale
+"""
+        response = llm.invoke([
+            SystemMessage(content="You return JSON only."),
+            HumanMessage(content=prompt)
+        ])
+        content = response.content.strip()
+        if content.startswith("```"):
+            content = content.split("```")[1]
+            if content.startswith("json"):
+                content = content[4:]
+        plan = json.loads(content)
+        return plan
+    except Exception:
+        # Simple fallback template
+        total = duration_min or 45
+        warm = max(5, int(total * 0.15))
+        cool = max(5, int(total * 0.15))
+        main = max(10, total - warm - cool)
+        return {
+            "title": "Structured Strength Session",
+            "total_duration_min": total,
+            "focus": focus or "strength",
+            "equipment": equipment or ["bodyweight"],
+            "blocks": [
+                {
+                    "name": "Warm-up",
+                    "duration_min": warm,
+                    "instructions": "Light cardio + dynamic mobility (hips, knees, ankles)",
+                    "exercises": [
+                        {"name":"Bike/Easy Cardio","sets":1,"reps":warm*60,"tempo":"steady","rest_sec":0,"rpe":3,"cues":"Nasal breathing, light sweat"},
+                        {"name":"Leg Swings + Ankle Rocks","sets":1,"reps":10,"tempo":"controlled","rest_sec":0,"rpe":2,"cues":"Tall posture, smooth range"}
+                    ]
+                },
+                {
+                    "name": "Main Set",
+                    "duration_min": main,
+                    "instructions": "3 rounds, rest 60–90s between exercises",
+                    "exercises": [
+                        {"name":"Split Squat (DB)","sets":3,"reps":8,"tempo":"3-1-1","rest_sec":60,"rpe":7,"cues":"Slow down, knee tracks toes"},
+                        {"name":"Romanian Deadlift (DB/KB)","sets":3,"reps":10,"tempo":"3-0-1","rest_sec":60,"rpe":7,"cues":"Hinge at hips, long spine"},
+                        {"name":"Step-up (knee-friendly)","sets":3,"reps":10,"tempo":"2-1-1","rest_sec":45,"rpe":6,"cues":"Soft landing, drive through mid-foot"},
+                        {"name":"Side Plank","sets":3,"reps":30,"tempo":"hold","rest_sec":30,"rpe":6,"cues":"Ribs down, glutes on"}
+                    ]
+                },
+                {
+                    "name": "Cooldown",
+                    "duration_min": cool,
+                    "instructions": "Easy walk + quad/hamstring/calf stretches and breathing",
+                    "exercises": [
+                        {"name":"Quad/Calf Stretch","sets":1,"reps":60,"tempo":"hold","rest_sec":0,"rpe":2,"cues":"Gentle, no pain"}
+                    ]
+                }
+            ],
+            "rationale": "Fallback template respecting equipment and duration."
+        }
+
+
+@tool
+def suggest_meals(workout_type: str, duration_min: int, dietary_prefs: List[str]) -> dict:
+    """Suggest pre and post-workout meals tailored to workout type, duration, and dietary preferences.
+    Returns dict with pre[], post[], rationale. Each meal has name, calories, protein_g, carbs_g, fat_g, notes.
+    """
+    try:
+        prefs = ", ".join(dietary_prefs) if dietary_prefs else "none"
+        prompt = f"""
+You are a sports nutritionist. Propose 2 pre-workout and 2 post-workout meal options.
+
+Workout: {workout_type}, Duration: {duration_min} min
+Dietary preferences: {prefs}
+
+Guidelines:
+- Pre: focus carbs + some protein, light fat; easy to digest, 60–90 min before
+- Post: prioritize protein 25–40g + carbs 0.8–1.2 g/kg
+- Keep options simple and common foods; include calories and macros
+
+Return JSON with pre[], post[], rationale (no extra text).
+"""
+        response = llm.invoke([
+            SystemMessage(content="You return JSON only."),
+            HumanMessage(content=prompt)
+        ])
+        content = response.content.strip()
+        if content.startswith("```"):
+            content = content.split("```")[1]
+            if content.startswith("json"):
+                content = content[4:]
+        return json.loads(content)
+    except Exception:
+        # Fallback simple suggestions
+        pre = [
+            {"name": "Banana + Greek yogurt", "calories": 250, "protein_g": 15, "carbs_g": 38, "fat_g": 4, "notes": "Easy digesting pre-workout"},
+            {"name": "Toast with jam + whey shake", "calories": 300, "protein_g": 20, "carbs_g": 45, "fat_g": 4}
+        ]
+        post = [
+            {"name": "Chicken rice bowl", "calories": 600, "protein_g": 40, "carbs_g": 80, "fat_g": 12},
+            {"name": "Tofu stir-fry + noodles", "calories": 550, "protein_g": 35, "carbs_g": 75, "fat_g": 14}
+        ]
+        return {"pre": pre, "post": post, "rationale": "Fallback balanced options."}
+
+
+@tool
+def fetch_influencer_content(handles_or_urls: List[str], tags: Optional[List[str]] = None) -> List[dict]:
+    """Fetch or summarize influencer content from provided handles/URLs. If no API keys, generate short summaries via LLM.
+    Returns list of {source, title, url, summary}.
+    """
+    try:
+        # No external API keys in this project; summarize inputs
+        items = []
+        for src in handles_or_urls:
+            prompt = f"Summarize why this source is relevant to training or recovery in 2 sentences: {src}"
+            res = llm.invoke([HumanMessage(content=prompt)])
+            items.append({"source": src, "title": "Recommended source", "url": src if src.startswith("http") else None, "summary": res.content[:200]})
+        return items
+    except Exception:
+        return [{"source": s, "title": "Source", "url": s if s.startswith("http") else None, "summary": "User-provided source."} for s in handles_or_urls]
+
+
+def search_youtube_videos(query: str, max_results: int = 5) -> List[Dict[str, Any]]:
+    """Search YouTube for workout videos using Data API v3.
+    Returns list of {video_id, title, description, thumbnail_url, channel_title, duration, view_count, url}.
+    """
+    api_key = os.getenv("YOUTUBE_API_KEY")
+    if not api_key:
+        return []
+    
+    try:
+        # Build search query
+        search_url = "https://www.googleapis.com/youtube/v3/search"
+        params = {
+            "part": "snippet",
+            "q": query,
+            "type": "video",
+            "maxResults": max_results,
+            "key": api_key,
+            "order": "relevance"
+        }
+        
+        with httpx.Client(timeout=10.0) as client:
+            response = client.get(search_url, params=params)
+            response.raise_for_status()
+            data = response.json()
+        
+        video_ids = [item["id"]["videoId"] for item in data.get("items", [])]
+        if not video_ids:
+            return []
+        
+        # Get detailed info (duration, view count)
+        details_url = "https://www.googleapis.com/youtube/v3/videos"
+        details_params = {
+            "part": "contentDetails,statistics,snippet",
+            "id": ",".join(video_ids),
+            "key": api_key
+        }
+        
+        with httpx.Client(timeout=10.0) as client:
+            details_response = client.get(details_url, params=details_params)
+            details_response.raise_for_status()
+            details_data = details_response.json()
+        
+        videos = []
+        for item in details_data.get("items", []):
+            # Parse duration (ISO 8601 format like PT45M30S)
+            duration_str = item.get("contentDetails", {}).get("duration", "PT0M")
+            duration_min = 0
+            if "H" in duration_str:
+                hours = int(duration_str.split("H")[0].replace("PT", ""))
+                duration_min += hours * 60
+            if "M" in duration_str:
+                minutes_part = duration_str.split("M")[0]
+                if "H" in minutes_part:
+                    minutes = int(minutes_part.split("H")[1])
+                else:
+                    minutes = int(minutes_part.replace("PT", ""))
+                duration_min += minutes
+            
+            videos.append({
+                "video_id": item["id"],
+                "title": item["snippet"]["title"],
+                "description": item["snippet"]["description"][:500],  # First 500 chars
+                "thumbnail_url": item["snippet"]["thumbnails"].get("medium", {}).get("url", ""),
+                "channel_title": item["snippet"]["channelTitle"],
+                "duration_min": duration_min,
+                "view_count": int(item.get("statistics", {}).get("viewCount", 0)),
+                "url": f"https://www.youtube.com/watch?v={item['id']}"
+            })
+        
+        return videos
+    except Exception as e:
+        print(f"YouTube search error: {e}")
+        return []
+
+
+def extract_workout_from_description(description: str, title: str) -> Optional[Dict[str, Any]]:
+    """Use LLM to extract structured workout plan from YouTube video description/title.
+    Returns dict with blocks/exercises if successful, None otherwise.
+    """
+    try:
+        prompt = f"""Extract a structured workout plan from this YouTube video information.
+
+Title: {title}
+Description: {description[:1000]}
+
+Return ONLY valid JSON with this structure (or null if not a workout video):
+{{
+  "title": "extracted workout title",
+  "total_duration_min": <int>,
+  "blocks": [
+    {{
+      "name": "Warm-up",
+      "duration_min": <int>,
+      "instructions": "brief description",
+      "exercises": [{{"name": "...", "sets": <int>, "reps": <int>, "tempo": "...", "rest_sec": <int>, "rpe": <int>, "cues": "..."}}]
+    }},
+    {{
+      "name": "Main Set",
+      "duration_min": <int>,
+      "instructions": "brief description",
+      "exercises": [...]
+    }},
+    {{
+      "name": "Cool-down",
+      "duration_min": <int>,
+      "instructions": "brief description",
+      "exercises": [...]
+    }}
+  ]
+}}
+
+If this is not a structured workout video, return null."""
+        
+        response = llm.invoke([
+            SystemMessage(content="You are a workout extraction expert. Return only valid JSON."),
+            HumanMessage(content=prompt)
+        ])
+        
+        content = response.content.strip()
+        if content.startswith("```"):
+            content = content.split("```")[1]
+            if content.startswith("json"):
+                content = content[4:]
+        
+        plan = json.loads(content)
+        if plan and isinstance(plan, dict) and "blocks" in plan:
+            return plan
+        return None
+    except Exception:
+        return None
+
 # ============================================================================
 # HEALTH STATE (LangGraph State)
 # ============================================================================
@@ -569,6 +917,11 @@ class HealthState(TypedDict):
     readiness_score: Optional[int]
     correlations: Optional[List[Dict[str, Any]]]
     tool_calls: Annotated[List[Dict[str, Any]], operator.add]
+    # Coach Mode additions
+    suggested_workout_plan: Optional[Dict[str, Any]]
+    suggested_meals_pre: Optional[List[Dict[str, Any]]]
+    suggested_meals_post: Optional[List[Dict[str, Any]]]
+    influencer_refs: Annotated[List[Dict[str, Any]], operator.add]
 
 
 # ============================================================================
@@ -883,6 +1236,94 @@ Nutrition data summary:
     }
 
 
+def coach_workout_agent(state: HealthState) -> HealthState:
+    """
+    Coach Workout Agent - Generates suggested workout plan from natural language intent
+    """
+    req = state["health_request"]
+    coach_req = req.get("coach_request", {})
+    intent = coach_req.get("request", "45 min full-body strength")
+    equipment = coach_req.get("equipment", [])
+    focus = coach_req.get("focus")
+    duration = coach_req.get("duration_min")
+
+    tools = [generate_workout_plan]
+    agent = llm.bind_tools(tools)
+    calls: List[Dict[str, Any]] = []
+
+    prompt = f"Create a structured plan for: {intent}."
+    with using_attributes(tags=["coach","workout"], metadata={"agent_name":"coach_workout_agent"}):
+        res = agent.invoke([HumanMessage(content=prompt)])
+
+    if getattr(res, "tool_calls", None):
+        for c in res.tool_calls:
+            calls.append({"agent":"coach_workout","tool":c["name"],"args":c.get("args",{})})
+        tool_node = ToolNode(tools)
+        tr = tool_node.invoke({"messages":[res]})
+        messages = [res] + tr["messages"]
+        final = llm.invoke(messages)
+        out_text = final.content
+    else:
+        # Direct tool invocation fallback
+        plan = generate_workout_plan.invoke({
+            "intent": intent,
+            "equipment": equipment,
+            "focus": focus,
+            "duration_min": duration
+        })
+        out_text = json.dumps(plan)
+
+    # Try to parse plan from last tool output if available
+    try:
+        plan = json.loads(out_text)
+    except Exception:
+        plan = {
+            "title": "Suggested Workout",
+            "total_duration_min": duration or 45,
+            "focus": focus,
+            "equipment": equipment,
+            "blocks": [],
+            "rationale": out_text[:200]
+        }
+
+    return {
+        "messages": [SystemMessage(content="coach_workout_plan_ready")],
+        "suggested_workout_plan": plan,
+        "tool_calls": calls
+    }
+
+
+def coach_meal_agent(state: HealthState) -> HealthState:
+    """
+    Coach Meal Agent - Suggests pre/post-workout meals based on context and prefs
+    """
+    req = state["health_request"]
+    coach_req = req.get("coach_request", {})
+    workout_type = coach_req.get("workout_type", "strength")
+    duration = coach_req.get("duration_min", 45)
+    dietary_prefs = coach_req.get("dietary_prefs", [])
+
+    tools = [suggest_meals]
+    agent = llm.bind_tools(tools)
+    calls: List[Dict[str, Any]] = []
+
+    prompt = f"Suggest pre and post-workout meals for a {duration} min {workout_type} session."
+    with using_attributes(tags=["coach","meals"], metadata={"agent_name":"coach_meal_agent"}):
+        res = agent.invoke([HumanMessage(content=prompt)])
+
+    suggestions = suggest_meals.invoke({
+        "workout_type": workout_type,
+        "duration_min": duration,
+        "dietary_prefs": dietary_prefs
+    })
+
+    return {
+        "messages": [SystemMessage(content="coach_meals_ready")],
+        "suggested_meals_pre": suggestions.get("pre", []),
+        "suggested_meals_post": suggestions.get("post", []),
+        "tool_calls": calls
+    }
+
 def insights_agent(state: HealthState) -> HealthState:
     """
     Insights Agent - Synthesizes all analyses and detects correlations.
@@ -1001,16 +1442,25 @@ def build_health_graph():
     g.add_node("recovery_node", recovery_agent)
     g.add_node("nutrition_node", nutrition_agent)
     g.add_node("insights_node", insights_agent)
+    if COACH_MODE:
+        g.add_node("coach_workout_node", coach_workout_agent)
+        g.add_node("coach_meal_node", coach_meal_agent)
     
     # Parallel execution: Activity, Recovery, Nutrition run simultaneously
     g.add_edge(START, "activity_node")
     g.add_edge(START, "recovery_node")
     g.add_edge(START, "nutrition_node")
+    if COACH_MODE:
+        g.add_edge(START, "coach_workout_node")
+        g.add_edge(START, "coach_meal_node")
     
     # All three feed into Insights agent
     g.add_edge("activity_node", "insights_node")
     g.add_edge("recovery_node", "insights_node")
     g.add_edge("nutrition_node", "insights_node")
+    if COACH_MODE:
+        g.add_edge("coach_workout_node", "insights_node")
+        g.add_edge("coach_meal_node", "insights_node")
     
     g.add_edge("insights_node", END)
     
@@ -1077,25 +1527,25 @@ if _TRACING:
 
 @app.get("/")
 def root():
-    """Serve frontend"""
-    frontend_path = Path(__file__).parent.parent / "frontend" / "index.html"
-    if frontend_path.exists():
-        return FileResponse(frontend_path)
+    """Serve Dashboard page"""
+    dashboard_path = Path(__file__).parent.parent / "frontend" / "dashboard.html"
+    if dashboard_path.exists():
+        return FileResponse(dashboard_path)
     return {"message": "AI Health Tracker API", "version": "1.0.0"}
 
 
 @app.get("/dashboard.html")
 def dashboard():
-    """Serve dashboard"""
+    """Serve dashboard page"""
     dashboard_path = Path(__file__).parent.parent / "frontend" / "dashboard.html"
     if dashboard_path.exists():
         return FileResponse(dashboard_path)
-    return {"error": "Dashboard not found"}
+    return {"error": "Dashboard page not found"}
 
 
 @app.get("/upload.html")
 def upload_page():
-    """Serve upload/data entry page"""
+    """Serve upload page"""
     upload_path = Path(__file__).parent.parent / "frontend" / "upload.html"
     if upload_path.exists():
         return FileResponse(upload_path)
@@ -1105,9 +1555,9 @@ def upload_page():
 @app.get("/ai-insights.html")
 def ai_insights():
     """Serve AI insights page"""
-    ai_path = Path(__file__).parent.parent / "frontend" / "ai-insights.html"
-    if ai_path.exists():
-        return FileResponse(ai_path)
+    insights_path = Path(__file__).parent.parent / "frontend" / "ai-insights.html"
+    if insights_path.exists():
+        return FileResponse(insights_path)
     return {"error": "AI insights page not found"}
 
 
@@ -1173,6 +1623,574 @@ def cache_stats():
         "model": os.getenv("LLM_MODEL", "openai/gpt-4o-mini"),
         "max_tokens": os.getenv("LLM_MAX_TOKENS", "1500")
     }
+
+
+# =========================================================================
+# COACH MODE: Preferences & Influencers API
+# =========================================================================
+
+def _csv_to_list(value: Optional[str]) -> List[str]:
+    if not value:
+        return []
+    return [s.strip() for s in value.split(",") if s.strip()]
+
+
+def _list_to_csv(values: Optional[List[str]]) -> Optional[str]:
+    if not values:
+        return None
+    return ", ".join([v.strip() for v in values if v and v.strip()])
+
+
+@app.get("/api/preferences")
+def get_preferences(db: Session = Depends(get_db_session)):
+    if not COACH_MODE:
+        return {"enabled": False}
+    pref = db.query(UserPreferences).filter(UserPreferences.user_id == 1).first()
+    return {
+        "equipment": _csv_to_list(pref.equipment_csv) if pref else [],
+        "dietary_prefs": _csv_to_list(pref.dietary_prefs_csv) if pref else []
+    }
+
+
+@app.post("/api/preferences")
+def upsert_preferences(req: PreferencesUpsert, db: Session = Depends(get_db_session)):
+    if not COACH_MODE:
+        raise HTTPException(status_code=400, detail="Coach mode is disabled")
+    pref = db.query(UserPreferences).filter(UserPreferences.user_id == 1).first()
+    if not pref:
+        pref = UserPreferences(user_id=1)
+        db.add(pref)
+    pref.equipment_csv = _list_to_csv(req.equipment)
+    pref.dietary_prefs_csv = _list_to_csv(req.dietary_prefs)
+    db.commit()
+    db.refresh(pref)
+    return {"status": "success"}
+
+
+@app.get("/api/influencers")
+def get_influencers(db: Session = Depends(get_db_session)):
+    if not COACH_MODE:
+        return {"enabled": False}
+    rows = db.query(InfluencerSource).filter(InfluencerSource.user_id == 1).all()
+    out = []
+    for r in rows:
+        out.append({
+            "platform": r.platform,
+            "handle": r.handle,
+            "url": r.url,
+            "tags": _csv_to_list(r.tags_csv)
+        })
+    return {"sources": out}
+
+
+@app.post("/api/influencers")
+def upsert_influencers(req: InfluencersUpsert, db: Session = Depends(get_db_session)):
+    if not COACH_MODE:
+        raise HTTPException(status_code=400, detail="Coach mode is disabled")
+    # Replace current list for simplicity
+    db.query(InfluencerSource).filter(InfluencerSource.user_id == 1).delete()
+    for s in req.sources:
+        row = InfluencerSource(
+            user_id=1,
+            platform=s.platform,
+            handle=s.handle,
+            url=s.url,
+            tags_csv=_list_to_csv(s.tags)
+        )
+        db.add(row)
+    db.commit()
+    return {"status": "success", "count": len(req.sources)}
+
+
+# =========================================================================
+# COACH MODE: Suggestion Endpoints
+# =========================================================================
+
+@app.post("/api/coach/workouts/suggest", response_model=WorkoutPlanResponse)
+def coach_suggest_workout(req: SuggestWorkoutRequest, db: Session = Depends(get_db_session)):
+    if not COACH_MODE:
+        raise HTTPException(status_code=400, detail="Coach mode is disabled")
+    # Load stored equipment as default
+    if not req.equipment:
+        pref = db.query(UserPreferences).filter(UserPreferences.user_id == 1).first()
+        req.equipment = _csv_to_list(pref.equipment_csv) if pref else []
+    plan = generate_workout_plan.invoke({
+        "intent": req.request,
+        "equipment": req.equipment or [],
+        "focus": req.focus,
+        "duration_min": req.duration_min
+    })
+    # Build contextual bullets from recent workouts
+    bullets = _build_more_about_plan(db)
+    
+    # Calculate readiness and pace zones
+    readiness = calculate_readiness_from_strava(db)
+    pace_zones_data = None
+    
+    # Include pace zones for endurance goals
+    focus_str = str(req.focus or "").lower()
+    request_str = str(req.request or "").lower()
+    if "endurance" in focus_str or "endurance" in request_str:
+        pace_zones_data = identify_pace_zones(db)
+    
+    # Adjust workout intensity based on readiness
+    if readiness["recommended_intensity"] == "recovery" and req.duration_min:
+        # Reduce duration for recovery days
+        req.duration_min = max(20, int(req.duration_min * 0.7))
+    elif readiness["recommended_intensity"] == "low":
+        # Slightly reduce intensity cues
+        req.duration_min = max(30, int(req.duration_min * 0.85))
+    
+    # Map to response model constraints
+    blocks = []
+    for b in plan.get("blocks", [])[:10]:
+        try:
+            exercises = []
+            for ex in b.get("exercises", []):
+                exercises.append({
+                    "name": ex.get("name", "Exercise"),
+                    "sets": ex.get("sets", 1),
+                    "reps": ex.get("reps", ""),
+                    "tempo": ex.get("tempo"),
+                    "rest_sec": ex.get("rest_sec"),
+                    "rpe": ex.get("rpe"),
+                    "cues": ex.get("cues")
+                })
+            blocks.append(WorkoutBlock(
+                name=b.get("name","Block"),
+                duration_min=int(b.get("duration_min", 10)),
+                instructions=b.get("instructions",""),
+                exercises=exercises
+            ))
+        except Exception:
+            continue
+    # Guard: ensure blocks exist (LLM may omit). Synthesize defaults based on total duration
+    if not blocks:
+        total_minutes = int(plan.get("total_duration_min", req.duration_min or 45))
+        warm = max(5, int(round(total_minutes * 0.15)))
+        cool = max(5, int(round(total_minutes * 0.15)))
+        main = max(10, total_minutes - warm - cool)
+        blocks = [
+            WorkoutBlock(
+                name="Warm-up",
+                duration_min=warm,
+                instructions="5–10 min easy cardio + dynamic knee/ankle/hip mobility"
+            ),
+            WorkoutBlock(
+                name="Main Set",
+                duration_min=main,
+                instructions="3–4 rounds: split squats (controlled eccentrics), hip hinge (RDL), step-ups, core bracing. Use available equipment."
+            ),
+            WorkoutBlock(
+                name="Cool-down",
+                duration_min=cool,
+                instructions="Easy walk + quad/hamstring/calf stretches and breathing to lower HR"
+            )
+        ]
+    
+    # Include readiness info in bullets
+    if readiness.get("intensity_note"):
+        bullets.insert(0, readiness["intensity_note"])
+    
+    return WorkoutPlanResponse(
+        title=plan.get("title", "Suggested Workout"),
+        total_duration_min=int(plan.get("total_duration_min", req.duration_min or 45)),
+        focus=plan.get("focus"),
+        equipment=plan.get("equipment", req.equipment or []),
+        blocks=blocks,
+        rationale=plan.get("rationale"),
+        more_about_this_plan=bullets,
+        readiness_score=readiness.get("readiness_score"),
+        recommended_intensity=readiness.get("recommended_intensity"),
+        pace_zones=pace_zones_data if pace_zones_data and pace_zones_data.get("has_zones") else None
+    )
+
+
+@app.post("/api/coach/meals/suggest", response_model=MealSuggestionsResponse)
+def coach_suggest_meals(req: SuggestMealsRequest, db: Session = Depends(get_db_session)):
+    if not COACH_MODE:
+        raise HTTPException(status_code=400, detail="Coach mode is disabled")
+    # Merge stored dietary prefs
+    if not req.dietary_prefs:
+        pref = db.query(UserPreferences).filter(UserPreferences.user_id == 1).first()
+        req.dietary_prefs = _csv_to_list(pref.dietary_prefs_csv) if pref else []
+    sug = suggest_meals.invoke({
+        "workout_type": req.workout_type,
+        "duration_min": req.duration_min,
+        "dietary_prefs": req.dietary_prefs
+    })
+    bullets = _build_more_about_plan(db)
+    def _map_list(lst):
+        out = []
+        for m in lst[:5]:
+            try:
+                out.append(MealSuggestion(
+                    name=m.get("name","Meal"),
+                    calories=int(m.get("calories", 400)),
+                    protein_g=int(m.get("protein_g", 25)),
+                    carbs_g=int(m.get("carbs_g", 50)),
+                    fat_g=int(m.get("fat_g", 10)),
+                    notes=m.get("notes")
+                ))
+            except Exception:
+                continue
+        return out
+    return MealSuggestionsResponse(
+        pre=_map_list(sug.get("pre", [])),
+        post=_map_list(sug.get("post", [])),
+        rationale=sug.get("rationale"),
+        more_about_this_plan=bullets
+    )
+
+
+class YouTubeSearchRequest(BaseModel):
+    goal: str
+    equipment: List[str] = []
+    duration_min: int
+
+
+class YouTubeExtractRequest(BaseModel):
+    video_id: str
+    title: str
+    description: str
+
+
+@app.post("/api/coach/youtube/search")
+def coach_search_youtube(req: YouTubeSearchRequest):
+    """Search YouTube for workout videos matching goal/equipment/duration."""
+    if not COACH_MODE:
+        raise HTTPException(status_code=400, detail="Coach mode is disabled")
+    
+    # Build search query
+    goal_map = {
+        "strength_building": "strength training",
+        "endurance": "endurance workout",
+        "recovery_mobility": "recovery mobility",
+        "general_fitness": "full body workout",
+        "weight_loss": "fat burning workout"
+    }
+    goal_term = goal_map.get(req.goal, "workout")
+    
+    equipment_str = " ".join(req.equipment[:3]) if req.equipment else ""
+    query = f"{req.duration_min} minute {goal_term} {equipment_str}".strip()
+    
+    videos = search_youtube_videos(query, max_results=5)
+    return {"videos": videos}
+
+
+@app.get("/api/coach/readiness")
+def coach_get_readiness(db: Session = Depends(get_db_session)):
+    """Get readiness score and recommended intensity based on recent Strava data."""
+    if not COACH_MODE:
+        raise HTTPException(status_code=400, detail="Coach mode is disabled")
+    return calculate_readiness_from_strava(db)
+
+
+@app.get("/api/coach/pace-zones")
+def coach_get_pace_zones(db: Session = Depends(get_db_session)):
+    """Get pace zones calculated from recent running workouts."""
+    if not COACH_MODE:
+        raise HTTPException(status_code=400, detail="Coach mode is disabled")
+    return identify_pace_zones(db)
+
+
+@app.post("/api/coach/youtube/extract", response_model=WorkoutPlanResponse)
+def coach_extract_workout(req: YouTubeExtractRequest):
+    """Extract structured workout plan from YouTube video description."""
+    if not COACH_MODE:
+        raise HTTPException(status_code=400, detail="Coach mode is disabled")
+    
+    plan = extract_workout_from_description(req.description, req.title)
+    if not plan:
+        raise HTTPException(status_code=400, detail="Could not extract workout structure from video")
+    
+    # Map to response model
+    blocks = []
+    for b in plan.get("blocks", [])[:10]:
+        try:
+            exercises = []
+            for ex in b.get("exercises", []):
+                exercises.append({
+                    "name": ex.get("name", "Exercise"),
+                    "sets": ex.get("sets", 1),
+                    "reps": ex.get("reps", ""),
+                    "tempo": ex.get("tempo"),
+                    "rest_sec": ex.get("rest_sec"),
+                    "rpe": ex.get("rpe"),
+                    "cues": ex.get("cues")
+                })
+            blocks.append(WorkoutBlock(
+                name=b.get("name", "Block"),
+                duration_min=int(b.get("duration_min", 10)),
+                instructions=b.get("instructions", ""),
+                exercises=exercises
+            ))
+        except Exception:
+            continue
+    
+    return WorkoutPlanResponse(
+        title=plan.get("title", "YouTube Workout"),
+        total_duration_min=int(plan.get("total_duration_min", 45)),
+        focus=None,
+        equipment=[],
+        blocks=blocks,
+        rationale="Extracted from YouTube video",
+        more_about_this_plan=[]
+    )
+
+
+def calculate_readiness_from_strava(db: Session) -> Dict[str, Any]:
+    """Calculate readiness score (1-10) and recommended intensity based on recent Strava workouts.
+    Returns dict with readiness_score, recommended_intensity, and factors.
+    """
+    try:
+        from sqlalchemy import desc
+        today = datetime.now().date()
+        cutoff_14 = today - timedelta(days=14)
+        
+        workouts = db.query(Workout).filter(
+            and_(Workout.user_id == 1, Workout.date >= cutoff_14)
+        ).order_by(desc(Workout.date)).all()
+        
+        if not workouts or len(workouts) < 3:
+            return {
+                "readiness_score": 7,
+                "recommended_intensity": "moderate",
+                "factors": ["Limited recent data: using moderate intensity"],
+                "days_since_last_workout": None,
+                "days_since_hard_workout": None,
+                "weekly_load_change": None
+            }
+        
+        # Calculate metrics
+        last_workout_days = (today - workouts[0].date).days if workouts else None
+        
+        # Find last "hard" workout (long duration or high HR)
+        last_hard_days = None
+        for w in workouts:
+            is_hard = (w.duration_min and w.duration_min >= 60) or (w.heart_rate_avg and w.heart_rate_avg >= 155)
+            if is_hard:
+                last_hard_days = (today - w.date).days
+                break
+        
+        # Calculate 7-day vs prior 7-day load
+        def sum_duration_for_range(start_offset: int, end_offset: int) -> float:
+            start = today - timedelta(days=start_offset)
+            end = today - timedelta(days=end_offset)
+            total = 0.0
+            for w in workouts:
+                if end <= w.date <= start and w.duration_min:
+                    total += w.duration_min
+            return total
+        
+        last7 = sum_duration_for_range(0, 7)
+        prev7 = sum_duration_for_range(7, 14)
+        load_change = ((last7 - prev7) / prev7 * 100) if prev7 > 0 else None
+        
+        # Calculate readiness score (1-10)
+        score = 7.0  # Start at neutral
+        factors = []
+        
+        # Days since last workout
+        if last_workout_days == 0:
+            score -= 0.5
+            factors.append("Workout today: consider lighter intensity")
+        elif last_workout_days >= 3:
+            score += 1.0
+            factors.append(f"Rest day: {last_workout_days}d since last workout")
+        
+        # Days since hard workout
+        if last_hard_days is not None:
+            if last_hard_days == 0:
+                score -= 1.5
+                factors.append("Hard workout today: recovery recommended")
+            elif last_hard_days == 1:
+                score -= 1.0
+                factors.append("Hard workout yesterday: easier day suggested")
+            elif last_hard_days >= 3:
+                score += 0.5
+                factors.append(f"Recovered: {last_hard_days}d since last hard session")
+        
+        # Weekly load change
+        if load_change is not None:
+            if load_change > 20:
+                score -= 1.0
+                factors.append(f"High load increase: {load_change:.0f}% (risk of overtraining)")
+            elif load_change < -30:
+                score += 0.5
+                factors.append(f"Reduced load: {load_change:.0f}% (good for recovery)")
+        
+        # Determine recommended intensity
+        score = max(1, min(10, round(score)))
+        if score >= 8:
+            intensity = "high"
+            intensity_note = "Ready for high-intensity training"
+        elif score >= 6:
+            intensity = "moderate"
+            intensity_note = "Good for moderate training"
+        elif score >= 4:
+            intensity = "low"
+            intensity_note = "Consider lighter intensity or active recovery"
+        else:
+            intensity = "recovery"
+            intensity_note = "Recovery day recommended"
+        
+        return {
+            "readiness_score": score,
+            "recommended_intensity": intensity,
+            "intensity_note": intensity_note,
+            "factors": factors[:3],
+            "days_since_last_workout": last_workout_days,
+            "days_since_hard_workout": last_hard_days,
+            "weekly_load_change": round(load_change, 1) if load_change else None
+        }
+    except Exception as e:
+        print(f"Readiness calculation error: {e}")
+        return {
+            "readiness_score": 7,
+            "recommended_intensity": "moderate",
+            "factors": ["Unable to calculate readiness"],
+            "days_since_last_workout": None,
+            "days_since_hard_workout": None,
+            "weekly_load_change": None
+        }
+
+
+def identify_pace_zones(db: Session) -> Dict[str, Any]:
+    """Identify pace zones from recent running workouts.
+    Returns dict with easy, tempo, threshold, and interval paces.
+    """
+    try:
+        from sqlalchemy import desc
+        today = datetime.now().date()
+        cutoff_90 = today - timedelta(days=90)
+        
+        # Get running workouts with pace data
+        runs = db.query(Workout).filter(
+            and_(
+                Workout.user_id == 1,
+                Workout.date >= cutoff_90,
+                Workout.type.in_(["Run", "run", "Running", "running"]),
+                Workout.pace_min_mi.isnot(None)
+            )
+        ).order_by(desc(Workout.date)).all()
+        
+        if not runs or len(runs) < 5:
+            return {
+                "has_zones": False,
+                "message": "Need at least 5 recent runs to estimate pace zones"
+            }
+        
+        # Extract paces (convert to min/mile if needed)
+        paces = [r.pace_min_mi for r in runs if r.pace_min_mi and r.pace_min_mi > 0]
+        if not paces:
+            return {
+                "has_zones": False,
+                "message": "No pace data available in recent runs"
+            }
+        
+        # Find best (fastest) pace (most recent 30 days preferred)
+        recent_runs = [r for r in runs if (today - r.date).days <= 30]
+        if recent_runs:
+            best_pace = min([r.pace_min_mi for r in recent_runs if r.pace_min_mi and r.pace_min_mi > 0])
+        else:
+            best_pace = min(paces)
+        
+        # Estimate zones using common formulas
+        # Easy pace: ~20-30% slower than 5K pace (best pace)
+        # Tempo: ~10-15% slower than 5K pace
+        # Threshold: ~5-8% slower than 5K pace
+        # Interval: ~0-3% slower than 5K pace (close to best)
+        
+        easy_pace = round(best_pace * 1.25, 1)  # 25% slower
+        tempo_pace = round(best_pace * 1.12, 1)  # 12% slower
+        threshold_pace = round(best_pace * 1.06, 1)  # 6% slower
+        interval_pace = round(best_pace * 1.02, 1)  # 2% slower
+        
+        # Calculate average pace for reference
+        avg_pace = round(sum(paces) / len(paces), 1)
+        
+        return {
+            "has_zones": True,
+            "best_pace_min_mi": round(best_pace, 1),
+            "avg_pace_min_mi": avg_pace,
+            "zones": {
+                "easy": {"min": easy_pace, "max": round(easy_pace * 1.1, 1), "description": "Conversational pace, aerobic base"},
+                "tempo": {"min": tempo_pace, "max": round(tempo_pace * 1.05, 1), "description": "Comfortably hard, sustainable 20-30min"},
+                "threshold": {"min": threshold_pace, "max": round(threshold_pace * 1.03, 1), "description": "Lactate threshold, sustainable 10-20min"},
+                "interval": {"min": interval_pace, "max": round(best_pace * 0.98, 1), "description": "Hard effort, 3-5min intervals"}
+            },
+            "sample_size": len(paces),
+            "data_range_days": (today - runs[-1].date).days
+        }
+    except Exception as e:
+        print(f"Pace zone calculation error: {e}")
+        return {
+            "has_zones": False,
+            "message": "Error calculating pace zones"
+        }
+
+
+def _build_more_about_plan(db: Session) -> List[str]:
+    """Compute concise bullets explaining why this plan fits today's context.
+    Uses recent workouts to create up to 3 actionable lines.
+    """
+    try:
+        from sqlalchemy import desc
+        # Last 28 days workouts
+        cutoff_28 = datetime.now().date() - timedelta(days=28)
+        ws = db.query(Workout).filter(
+            and_(Workout.user_id == 1, Workout.date >= cutoff_28)
+        ).order_by(desc(Workout.date)).all()
+        if not ws:
+            return [
+                "Limited recent data: using conservative volume and knee-friendly progressions."
+            ]
+
+        # Aggregate durations by day
+        by_day: Dict[str, float] = {}
+        types: Dict[str, int] = {}
+        last_hard_day_delta = None
+        today = datetime.now().date()
+        for w in ws:
+            key = w.date.isoformat()
+            by_day[key] = by_day.get(key, 0.0) + (w.duration_min or 0.0)
+            types[w.type or "Other"] = types.get(w.type or "Other", 0) + 1
+            # Simple "hard" heuristic
+            if last_hard_day_delta is None and ((w.duration_min or 0) >= 60 or (w.heart_rate_avg or 0) >= 155):
+                last_hard_day_delta = (today - w.date).days
+
+        # 7-day vs prior 7-day load
+        def sum_range(start_offset: int, end_offset: int) -> float:
+            start = today - timedelta(days=start_offset)
+            end = today - timedelta(days=end_offset)
+            total = 0.0
+            for i in range((start - end).days):
+                d = (end + timedelta(days=i)).isoformat()
+                total += by_day.get(d, 0.0)
+            return total
+
+        last7 = sum_range(0, 7)
+        prev7 = sum_range(7, 14)
+        ratio = (last7 / prev7) if prev7 > 0 else None
+        load_line = None
+        if ratio is not None:
+            delta_pct = round((ratio - 1.0) * 100)
+            load_line = f"Weekly load change: {delta_pct:+d}% (last 7d vs prior)"
+        else:
+            load_line = f"Weekly load (last 7d): {int(round(last7))} min"
+
+        # Modality breakdown
+        top_mod = sorted(types.items(), key=lambda x: x[1], reverse=True)[:1]
+        mod_line = f"Recent focus: {top_mod[0][0]} sessions" if top_mod else None
+
+        hard_line = f"Last hard session: {last_hard_day_delta}d ago" if last_hard_day_delta is not None else None
+
+        bullets = [b for b in [hard_line, load_line, mod_line] if b]
+        return bullets[:3] if bullets else ["Balanced session based on recent training."]
+    except Exception:
+        return ["Context unavailable: using safe defaults."]
+
 
 
 class QuestionRequest(BaseModel):
@@ -1384,16 +2402,45 @@ def estimate_nutrition(req: NutritionEstimateRequest):
 
 
 @app.post("/api/nutrition/log")
-def log_nutrition(entry: NutritionEntry):
+def log_nutrition(entry: NutritionEntry, db: Session = Depends(get_db_session)):
     """
-    Log nutrition entry (manual or AI estimate)
+    Log nutrition entry (manual or AI estimate) to database
     """
-    # TODO: Store in database
-    return {
-        "status": "success",
-        "message": "Nutrition logged successfully",
-        "entry": entry.model_dump()
-    }
+    try:
+        # Create nutrition entry (single-user mode: user_id=1)
+        # Pydantic already converts ISO date strings to date objects
+        nutrition = Nutrition(
+            user_id=1,
+            date=entry.date,
+            method=entry.method,
+            source_description=entry.source_description or (entry.notes if entry.notes else "Manual entry"),
+            calories=entry.calories,
+            protein_g=float(entry.protein_g) if entry.protein_g is not None else None,
+            carbs_g=float(entry.carbs_g) if entry.carbs_g is not None else None,
+            fat_g=float(entry.fat_g) if entry.fat_g is not None else None
+        )
+        
+        db.add(nutrition)
+        db.commit()
+        db.refresh(nutrition)
+        
+        return {
+            "status": "success",
+            "message": "Nutrition logged successfully",
+            "entry": {
+                "id": nutrition.id,
+                "date": nutrition.date.isoformat(),
+                "method": nutrition.method,
+                "source_description": nutrition.source_description,
+                "calories": nutrition.calories,
+                "protein_g": nutrition.protein_g,
+                "carbs_g": nutrition.carbs_g,
+                "fat_g": nutrition.fat_g
+            }
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error saving nutrition entry: {str(e)}")
 
 
 # ============================================================================
@@ -1583,10 +2630,11 @@ def get_nutrition_logs(days: int = 7, db: Session = Depends(get_db_session)):
 # ============================================================================
 
 @app.get("/api/workouts")
-def get_workouts(days: int = 30, db: Session = Depends(get_db_session)):
+def get_workouts(days: int = 90, db: Session = Depends(get_db_session)):
     """
     Get recent workouts from database
     Returns format compatible with existing frontend (my_strava_data.json format)
+    Default to 90 days to capture more historical data
     """
     try:
         # Calculate cutoff date
